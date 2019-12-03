@@ -86,10 +86,6 @@ class Window1:
         # self.entry.pack(fill=tk.X)
         # self.entry.bind('<KeyRelease>', self.update)
 
-
-
-
-
     def midFrame(self):
         mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=1, relief='sunken')
         mid_frame.pack(side=tk.LEFT, fill='both')
