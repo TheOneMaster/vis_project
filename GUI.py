@@ -116,7 +116,7 @@ class Window1:
         info_label.pack(side=tk.LEFT)
 
         # Save graph
-        save_image = Image.open('Images/untitled.png')
+        save_image = Image.open('Images/save.png')
         save_image = ImageTk.PhotoImage(save_image)
         graph_save = ttk.Button(info, image=save_image)
         graph_save.image = save_image
