@@ -65,7 +65,7 @@ class Window1:
         title.pack()
 
         # Plot Button (Bottom of Frame)
-        plt_button = ttk.Button(left_frame, text='PLOT')
+        plt_button = ttk.Button(left_frame, text='PLOT', command=self.plot)
         plt_button.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Plot options (Middle of Frame)
@@ -79,22 +79,22 @@ class Window1:
         label_names.pack(side='top')
         graph_list = ['Node', "Hist", "Line"]
         graph_name = tk.StringVar()
-        graph_box = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
-        graph_box.pack(fill=tk.X, pady=5, ipady=5)
+        self.graph_type = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
+        self.graph_type.pack(fill=tk.X, pady=5, ipady=5)
 
         # Select Names
         select_names_frame = tk.Frame(plot_options_frame)
         select_names_frame.pack(side=tk.TOP, fill='both')
 
         select_names_label = ttk.Label(select_names_frame, text='Select Name')
-        select_names_label.pack(side=tk.LEFT)
+        select_names_label.pack(side=tk.LEFT, padx=5)
         self.text_val = tk.StringVar()
         self.entry = ttk.Combobox(select_names_frame, textvariable=self.text_val, values=self.values)
         self.entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         self.entry.bind('<KeyRelease>', self.update)
 
     def midFrame(self):
-        mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=1, relief='sunken')
+        mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=2, relief='sunken')
         mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
         # Notebook stuff
@@ -102,10 +102,10 @@ class Window1:
         graph_main.pack(fill='both', expand=True)
 
         # Page 1 (In notebook)
-        page1 = ttk.Frame(graph_main)
+        page1 = tk.Frame(graph_main)
         graph1_image = Image.open('Images/living.jpg')
         graph1_tkimage = ImageTk.PhotoImage(graph1_image, width=500)
-        graph1 = tk.Label(page1, image=graph1_tkimage)
+        graph1 = tk.Label(page1, image=graph1_tkimage, bg='white')
         graph1.image = graph1_tkimage
         graph1.pack(expand=True, fill='both')
         graph_main.add(page1, text='Population per year')
@@ -113,7 +113,7 @@ class Window1:
         # Page 2 (In notebook)
         page2 = ttk.Frame(graph_main)
         graph2_image = ImageTk.PhotoImage(Image.open('Images/death.jpg'))
-        graph2 = tk.Label(page2, image=graph2_image)
+        graph2 = tk.Label(page2, image=graph2_image, bg='white')
         graph2.image = graph2_image
         graph2.pack(expand=True, fill='both')
         graph_main.add(page2, text='Deaths per year')
@@ -144,6 +144,14 @@ class Window1:
         title.pack()
 
     def save_graph(self):
+        """ TO BE IMPLEMENTED
+        Save the graph as jpg to the filesystem."""
+        pass
+
+    def plot(self):
+        """ TO BE IMPLEMENTED
+        Plot the graph using the details taken from the left frame.
+        """
         pass
 
 
