@@ -95,18 +95,28 @@ class Window1:
 
     def midFrame(self):
         mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=1, relief='sunken')
-        mid_frame.pack(side=tk.LEFT, fill='both')
+        mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
         # Notebook stuff
         graph_main = ttk.Notebook(mid_frame)
         graph_main.pack(fill='both', expand=True)
+
+        # Page 1 (In notebook)
         page1 = ttk.Frame(graph_main)
-        graph1_image = Image.open('Images/NASDAQ-composite.png')
+        graph1_image = Image.open('Images/living.jpg')
         graph1_tkimage = ImageTk.PhotoImage(graph1_image, width=500)
         graph1 = tk.Label(page1, image=graph1_tkimage)
         graph1.image = graph1_tkimage
         graph1.pack(expand=True, fill='both')
-        graph_main.add(page1, text='Graph 1')
+        graph_main.add(page1, text='Population per year')
+
+        # Page 2 (In notebook)
+        page2 = ttk.Frame(graph_main)
+        graph2_image = ImageTk.PhotoImage(Image.open('Images/death.jpg'))
+        graph2 = tk.Label(page2, image=graph2_image)
+        graph2.image = graph2_image
+        graph2.pack(expand=True, fill='both')
+        graph_main.add(page2, text='Deaths per year')
 
         # Graph info
         info = tk.Frame(mid_frame, borderwidth=1, relief='sunken')
