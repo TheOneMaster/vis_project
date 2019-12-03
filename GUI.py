@@ -61,21 +61,34 @@ class Window1:
         title = ttk.Label(title_frame, text="Input", font=self.titleFont)
         title.pack()
 
-        # Select Names
-        select_frame = ttk.Frame(left_frame, borderwidth=1)
-        select_frame.pack(side=tk.TOP, fill=tk.X, padx=40, pady=20)
-        label_names = ttk.Label(select_frame, text='Select Name', width=12, borderwidth=1, font=12)
-        label_names.pack()
-
-        # Textbox for names
-        self.text_val = tk.StringVar()
-        self.entry = ttk.Combobox(select_frame, textvariable=self.text_val, values=self.values)
-        self.entry.pack(fill=tk.X)
-        self.entry.bind('<KeyRelease>', self.update)
-
         # Plot Button
         plt_button = ttk.Button(left_frame, text='PLOT')
         plt_button.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Plot options
+        plot_options_frame = tk.Frame(left_frame)
+        plot_options_frame.pack(side=tk.BOTTOM, fill='both', expand=True)
+
+        # Select Graph Type
+        select_frame = tk.Frame(plot_options_frame, borderwidth=1)
+        select_frame.pack(side=tk.TOP, fill=tk.X, padx=40, pady=20)
+        label_names = ttk.Label(select_frame, text='Select graph type', borderwidth=1, font=('Comic Sans', 11))
+        label_names.pack(side='top')
+        graph_list = ['Node', "Hist", "Line"]
+        graph_name = tk.StringVar()
+        graph_box = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
+        graph_box.pack(fill=tk.X, pady=5, ipady=5)
+
+
+        # Textbox for names
+        # self.text_val = tk.StringVar()
+        # self.entry = ttk.Combobox(select_frame, textvariable=self.text_val, values=self.values)
+        # self.entry.pack(fill=tk.X)
+        # self.entry.bind('<KeyRelease>', self.update)
+
+
+
+
 
     def midFrame(self):
         mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=1, relief='sunken')
@@ -85,7 +98,7 @@ class Window1:
         graph_main = ttk.Notebook(mid_frame)
         graph_main.pack(fill='both', expand=True)
         page1 = ttk.Frame(graph_main)
-        graph1_image = Image.open('NASDAQ-composite.png')
+        graph1_image = Image.open('Images/NASDAQ-composite.png')
         graph1_tkimage = ImageTk.PhotoImage(graph1_image, width=500)
         graph1 = tk.Label(page1, image=graph1_tkimage)
         graph1.image = graph1_tkimage
@@ -113,12 +126,6 @@ class Window1:
         title_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
         title = ttk.Label(title_frame, text="Output", font=self.titleFont)
         title.pack()
-
-        # Save Graph (Button)
-        save_frame = tk.Frame(right_frame, width=250, height=50, borderwidth=1, relief='sunken', bg='red')
-        save_frame.pack(side=tk.RIGHT, fill=tk.X, padx=10, expand=True)
-        save_button = ttk.Button(save_frame, command=self.save_graph, text="Save Graph")
-        save_button.pack(fill='both', side=tk.BOTTOM)
 
     def save_graph(self):
         pass
