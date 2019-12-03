@@ -25,6 +25,8 @@ class Window1:
         self.rightFrame()
 
     def update(self, e):
+        """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
+        input. """
 
         val = self.text_val.get()
         self.entry['values'] = self.getnames(val)
@@ -51,21 +53,22 @@ class Window1:
                 return values
 
     def leftFrame(self):
+        """ Creates the left Frame for the input and the widgets to be placed in it"""
 
         left_frame = tk.Frame(self.parent, height=500, width=250, borderwidth=1)
         left_frame.pack(side=tk.LEFT, fill='both')
 
-        # Title
+        # Title (Top of Frame)
         title_frame = ttk.Frame(left_frame)
         title_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
         title = ttk.Label(title_frame, text="Input", font=self.titleFont)
         title.pack()
 
-        # Plot Button
+        # Plot Button (Bottom of Frame)
         plt_button = ttk.Button(left_frame, text='PLOT')
         plt_button.pack(side=tk.BOTTOM, fill=tk.X)
 
-        # Plot options
+        # Plot options (Middle of Frame)
         plot_options_frame = tk.Frame(left_frame)
         plot_options_frame.pack(side=tk.BOTTOM, fill='both', expand=True)
 
@@ -79,12 +82,16 @@ class Window1:
         graph_box = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
         graph_box.pack(fill=tk.X, pady=5, ipady=5)
 
+        # Select Names
+        select_names_frame = tk.Frame(plot_options_frame)
+        select_names_frame.pack(side=tk.TOP, fill='both')
 
-        # Textbox for names
-        # self.text_val = tk.StringVar()
-        # self.entry = ttk.Combobox(select_frame, textvariable=self.text_val, values=self.values)
-        # self.entry.pack(fill=tk.X)
-        # self.entry.bind('<KeyRelease>', self.update)
+        select_names_label = ttk.Label(select_names_frame, text='Select Name')
+        select_names_label.pack(side=tk.LEFT)
+        self.text_val = tk.StringVar()
+        self.entry = ttk.Combobox(select_names_frame, textvariable=self.text_val, values=self.values)
+        self.entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
+        self.entry.bind('<KeyRelease>', self.update)
 
     def midFrame(self):
         mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=1, relief='sunken')
@@ -109,17 +116,20 @@ class Window1:
         info_label.pack(side=tk.LEFT)
 
         # Save graph
-        graph_save = ttk.Button(info, text='Save')
+        save_image = Image.open('Images/untitled.png')
+        save_image = ImageTk.PhotoImage(save_image)
+        graph_save = ttk.Button(info, image=save_image)
+        graph_save.image = save_image
         graph_save.pack(side=tk.RIGHT)
 
     def rightFrame(self):
 
         right_frame = tk.Frame(self.parent, height=500, width=250, borderwidth=1)
-        right_frame.pack(side=tk.LEFT, fill='both')
+        right_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
         # Title
-        title_frame = ttk.Frame(right_frame, borderwidth=1)
-        title_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
+        title_frame = tk.Frame(right_frame, borderwidth=1)
+        title_frame.pack(side=tk.TOP, fill='both', expand=True)
         title = ttk.Label(title_frame, text="Output", font=self.titleFont)
         title.pack()
 
@@ -128,13 +138,13 @@ class Window1:
 
 
 def main():
-    root = tk.Tk()
 
+    # Root Window Configuration
+    root = tk.Tk()
     root.title('GUI Implementation')
     root.geometry('1200x500')
     root.update()
-
-
+    root.resizable(False, False)
 
     Window1(root)
     root.mainloop()
