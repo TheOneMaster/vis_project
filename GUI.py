@@ -15,6 +15,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.animation as anim
 
 
+# Custom Tkinter Widgets
 class CustomNotebook(ttk.Notebook):
     """A ttk Notebook with close buttons on each tab"""
 
@@ -127,30 +128,26 @@ class NotebookTab(tk.Frame):
         # Save graph
         save_image = Image.open('Images/save.png')
         save_image = ImageTk.PhotoImage(save_image)
-        graph_save = ttk.Button(info, image=save_image)
+        graph_save = ttk.Button(info, image=save_image, command=self.save)
         graph_save.image = save_image
         graph_save.pack(side=tk.RIGHT)
 
     def plot(self, data):
-
         names = data.groupby('FirstName')['Lastname'].count().nlargest(10)
-        fig, ax = plt.subplots(figsize=(7, 5))
+        self.fig, ax = plt.subplots(figsize=(7, 5))
         names.plot(kind='bar', ax=ax, title=self.title)
-        fig.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, master=self)
+        self.fig.tight_layout()
+        canvas = FigureCanvasTkAgg(self.fig, master=self)
         canvas.draw()
         canvas.get_tk_widget().pack(side=tk.TOP, expand=True, fill='both')
 
-
-class CustomProgressBar(tk.Toplevel):
-
-    def __init__(self):
-        tk.Toplevel.__init__(self)
-        progress_bar = ttk.Progressbar(self, mode='indeterminate')
+    def save(self):
+        file_types = [('JPEG file', '.jpg'), ('PNG file', '.png')]
+        filename = filedialog.asksaveasfilename(title='Select file name',
+                                                filetypes=file_types)
 
 
-
-
+# Window classes
 class Window1:
     values = ["Johannes", "Johanna", "Maria", "Cornelis", "Adriana", "Petronella", "Cornelia", "Anna Maria",
               "Johanna Maria", "Adrianus"]
@@ -259,11 +256,12 @@ class Window1:
         label.place(x=100, width=100)
 
         # Notebook stuff
-        self.graph_notebook = CustomNotebook(mid_frame)
+        self.graph_notebook = CustomNotebook(mid_frame, )
         self.graph_notebook.pack(fill='both', expand=True)
+        self.graph_notebook.bind("<<NotebookTabChanged>>", self.test)
 
         a = NotebookTab(self.graph_notebook, 'test_1', 'bar')
-        self.graph_notebook.add(a)
+        self.graph_notebook.add(a, text='Introduction')
 
         return mid_frame
 
@@ -298,22 +296,30 @@ class Window1:
             tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
             tab.plot(self.data)
             self.graph_notebook.add(tab, text=title)
-            print(self.graph_notebook.index('test'))
+            self.graph_notebook.select(tab)
 
     def get_data(self):
 
-        file_name = filedialog.askopenfilename()
+        try:
+            file_name = filedialog.askopenfilename()
 
-        with open(file_name, 'r', encoding='latin-1') as data_file:
-            df = pd.read_csv(data_file)
+            with open(file_name, 'r', encoding='latin-1') as data_file:
+                df = pd.read_csv(data_file)
 
-        self.data = df
+            self.data = df
+        except FileNotFoundError:
+            pass
+
+    def test(self, *args):
+
+        print(self.graph_notebook.tabs())
+
 
 def main():
     # Root Window Configuration
     root = tk.Tk()
     root.title('GUI Implementation')
-    # root.geometry('1200x500')
+    root.geometry('1200x500')
     root.update()
     # root.resizable(False, False)
 
