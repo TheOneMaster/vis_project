@@ -6,7 +6,7 @@ import pandas as pd
 
 # Tkinter imports
 import tkinter as tk
-from tkinter import ttk, font
+from tkinter import ttk, font, filedialog, messagebox
 from PIL import ImageTk, Image
 
 # Matplotlib libraries
@@ -142,6 +142,15 @@ class NotebookTab(tk.Frame):
         canvas.get_tk_widget().pack(side=tk.TOP, expand=True, fill='both')
 
 
+class CustomProgressBar(tk.Toplevel):
+
+    def __init__(self):
+        tk.Toplevel.__init__(self)
+        progress_bar = ttk.Progressbar(self, mode='indeterminate')
+
+
+
+
 class Window1:
     values = ["Johannes", "Johanna", "Maria", "Cornelis", "Adriana", "Petronella", "Cornelia", "Anna Maria",
               "Johanna Maria", "Adrianus"]
@@ -155,15 +164,16 @@ class Window1:
         # Instance variables
         self.parent = parent
         self.titleFont = font.Font(family='Helvetica', size=18, weight=font.BOLD, underline=1)
+        self.data = None
 
         # Frame Stuff
         self.left_frame = self.leftFrame()
         self.mid_frame = self.midFrame()
         self.right_frame = self.rightFrame()
 
-        self.left_frame.pack(side=tk.LEFT, fill='both', expand=True)
+        self.left_frame.pack(side=tk.LEFT, fill='both')
         self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
-        self.right_frame.pack(side=tk.LEFT, fill='both', expand=True)
+        self.right_frame.pack(side=tk.LEFT, fill='both')
 
     def update(self, e):
         """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
@@ -203,6 +213,10 @@ class Window1:
         title_frame.pack(side=tk.TOP, fill=tk.X, pady=5)
         title = ttk.Label(title_frame, text="Input", font=self.titleFont)
         title.pack()
+
+        # Get Data
+        data_button = ttk.Button(left_frame, command=self.get_data, text='Input data file')
+        data_button.pack(side=tk.TOP)
 
         # Plot Button (Bottom of Frame)
         plt_button = ttk.Button(left_frame, text='PLOT', command=self.plot)
@@ -276,12 +290,24 @@ class Window1:
 
     def plot(self):
 
-        data = pd.read_csv(r"D:\Computer Files\Documents\University\Year 2\Visualisation\Datasets\Birth.csv")
-        title = 'test 2'
-        tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
-        tab.plot(data)
-        self.graph_notebook.add(tab, text=title)
+        if self.data is None:
+            error_message = """There is no data provided to the application."""
+            messagebox.showerror('Data', error_message)
+        else:
+            title = 'test 2'
+            tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
+            tab.plot(self.data)
+            self.graph_notebook.add(tab, text=title)
+            print(self.graph_notebook.index('test'))
 
+    def get_data(self):
+
+        file_name = filedialog.askopenfilename()
+
+        with open(file_name, 'r', encoding='latin-1') as data_file:
+            df = pd.read_csv(data_file)
+
+        self.data = df
 
 def main():
     # Root Window Configuration
