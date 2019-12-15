@@ -1,28 +1,169 @@
-import tkinter as tk
-from tkinter import ttk, font
-from PIL import ImageTk, Image
+# Random imports
 import numpy as np
 import pickle
 import re
+import pandas as pd
+
+# Tkinter imports
+import tkinter as tk
+from tkinter import ttk, font
+from PIL import ImageTk, Image
+
+# Matplotlib libraries
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.animation as anim
+
+
+class CustomNotebook(ttk.Notebook):
+    """A ttk Notebook with close buttons on each tab"""
+
+    __initialized = False
+
+    def __init__(self, *args, **kwargs):
+        if not self.__initialized:
+            self.__initialize_custom_style()
+            self.__inititialized = True
+
+        kwargs["style"] = "CustomNotebook"
+        ttk.Notebook.__init__(self, *args, **kwargs)
+
+        self._active = None
+
+        self.bind("<ButtonPress-1>", self.on_close_press, True)
+        self.bind("<ButtonRelease-1>", self.on_close_release)
+
+    def on_close_press(self, event):
+        """Called when the button is pressed over the close button"""
+
+        element = self.identify(event.x, event.y)
+
+        if "close" in element:
+            index = self.index("@%d,%d" % (event.x, event.y))
+            self.state(['pressed'])
+            self._active = index
+
+    def on_close_release(self, event):
+        """Called when the button is released over the close button"""
+        if not self.instate(['pressed']):
+            return
+
+        element = self.identify(event.x, event.y)
+        index = self.index("@%d,%d" % (event.x, event.y))
+
+        if "close" in element and self._active == index:
+            self.forget(index)
+            self.event_generate("<<NotebookTabClosed>>")
+
+        self.state(["!pressed"])
+        self._active = None
+
+    def __initialize_custom_style(self):
+        style = ttk.Style()
+        self.images = (
+            tk.PhotoImage("img_close", data='''
+                R0lGODlhCAAIAMIBAAAAADs7O4+Pj9nZ2Ts7Ozs7Ozs7Ozs7OyH+EUNyZWF0ZWQg
+                d2l0aCBHSU1QACH5BAEKAAQALAAAAAAIAAgAAAMVGDBEA0qNJyGw7AmxmuaZhWEU
+                5kEJADs=
+                '''),
+            tk.PhotoImage("img_closeactive", data='''
+                R0lGODlhCAAIAMIEAAAAAP/SAP/bNNnZ2cbGxsbGxsbGxsbGxiH5BAEKAAQALAAA
+                AAAIAAgAAAMVGDBEA0qNJyGw7AmxmuaZhWEU5kEJADs=
+                '''),
+            tk.PhotoImage("img_closepressed", data='''
+                R0lGODlhCAAIAMIEAAAAAOUqKv9mZtnZ2Ts7Ozs7Ozs7Ozs7OyH+EUNyZWF0ZWQg
+                d2l0aCBHSU1QACH5BAEKAAQALAAAAAAIAAgAAAMVGDBEA0qNJyGw7AmxmuaZhWEU
+                5kEJADs=
+            ''')
+        )
+
+        style.element_create("close", "image", "img_close",
+                             ("active", "pressed", "!disabled", "img_closepressed"),
+                             ("active", "!disabled", "img_closeactive"), border=8, sticky='')
+        style.layout("CustomNotebook", [("CustomNotebook.client", {"sticky": "nswe"})])
+        style.layout("CustomNotebook.Tab", [
+            ("CustomNotebook.tab", {
+                "sticky": "nswe",
+                "children": [
+                    ("CustomNotebook.padding", {
+                        "side": "top",
+                        "sticky": "nswe",
+                        "children": [
+                            ("CustomNotebook.focus", {
+                                "side": "top",
+                                "sticky": "nswe",
+                                "children": [
+                                    ("CustomNotebook.label", {"side": "left", "sticky": ''}),
+                                    ("CustomNotebook.close", {"side": "left", "sticky": ''}),
+                                ]
+                            })
+                        ]
+                    })
+                ]
+            })
+        ])
+
+
+class NotebookTab(tk.Frame):
+
+    def __init__(self, parent, title, graph_type):
+        """Creates a tab for the custom Notebook.
+
+         Variables
+         parent: A CustomNotebook Instance
+         title:  The title for the tab
+         graph_type: String representation of the type of graph (ex: bar)
+         """
+        tk.Frame.__init__(self, parent)
+        self.title = title
+        self.graph_type = graph_type
+
+        # Graph info
+        info = tk.Frame(self, borderwidth=1, relief='sunken')
+        info.pack(side=tk.BOTTOM, fill='both')
+        info_label = ttk.Label(info, text=graph_type, font='Times 12')
+        info_label.pack(side=tk.LEFT)
+
+        # Save graph
+        save_image = Image.open('Images/save.png')
+        save_image = ImageTk.PhotoImage(save_image)
+        graph_save = ttk.Button(info, image=save_image)
+        graph_save.image = save_image
+        graph_save.pack(side=tk.RIGHT)
+
+    def plot(self, data):
+
+        names = data.groupby('FirstName')['Lastname'].count().nlargest(10)
+        fig, ax = plt.subplots(figsize=(7, 5))
+        names.plot(kind='bar', ax=ax, title=self.title)
+        fig.tight_layout()
+        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, expand=True, fill='both')
 
 
 class Window1:
-
     values = ["Johannes", "Johanna", "Maria", "Cornelis", "Adriana", "Petronella", "Cornelia", "Anna Maria",
               "Johanna Maria", "Adrianus"]
+
     with open('names.pickle', 'rb') as names:
         all_names = pickle.load(names)
         all_names = np.array(all_names)
 
     def __init__(self, parent):
 
+        # Instance variables
         self.parent = parent
         self.titleFont = font.Font(family='Helvetica', size=18, weight=font.BOLD, underline=1)
 
         # Frame Stuff
-        self.leftFrame()
-        self.midFrame()
-        self.rightFrame()
+        self.left_frame = self.leftFrame()
+        self.mid_frame = self.midFrame()
+        self.right_frame = self.rightFrame()
+
+        self.left_frame.pack(side=tk.LEFT, fill='both', expand=True)
+        self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
+        self.right_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
     def update(self, e):
         """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
@@ -55,8 +196,7 @@ class Window1:
     def leftFrame(self):
         """ Creates the left Frame for the input and the widgets to be placed in it"""
 
-        left_frame = tk.Frame(self.parent, height=500, width=250, borderwidth=1)
-        left_frame.pack(side=tk.LEFT, fill='both')
+        left_frame = tk.Frame(self.parent, borderwidth=1)
 
         # Title (Top of Frame)
         title_frame = ttk.Frame(left_frame)
@@ -85,7 +225,6 @@ class Window1:
         # Select Names
         select_names_frame = tk.Frame(plot_options_frame)
         select_names_frame.pack(side=tk.TOP, fill='both')
-
         select_names_label = ttk.Label(select_names_frame, text='Select Name')
         select_names_label.pack(side=tk.LEFT, padx=5)
         self.text_val = tk.StringVar()
@@ -93,49 +232,30 @@ class Window1:
         self.entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         self.entry.bind('<KeyRelease>', self.update)
 
+        # Change Plot Labels
+        change_labels = ttk.Button(plot_options_frame, text='Change Labels', command=self.label_info)
+        change_labels.pack(side=tk.BOTTOM, padx=5, pady=10)
+
+        return left_frame
+
     def midFrame(self):
-        mid_frame = tk.Frame(self.parent, height=500, width=500, borderwidth=2, relief='sunken')
-        mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
+
+        mid_frame = tk.Frame(self.parent, borderwidth=2, relief='sunken')
+        label = ttk.Label(mid_frame, text='Plots', font=self.titleFont)
+        label.place(x=100, width=100)
 
         # Notebook stuff
-        graph_main = ttk.Notebook(mid_frame)
-        graph_main.pack(fill='both', expand=True)
+        self.graph_notebook = CustomNotebook(mid_frame)
+        self.graph_notebook.pack(fill='both', expand=True)
 
-        # Page 1 (In notebook)
-        page1 = tk.Frame(graph_main)
-        graph1_image = Image.open('Images/living.jpg')
-        graph1_tkimage = ImageTk.PhotoImage(graph1_image, width=500)
-        graph1 = tk.Label(page1, image=graph1_tkimage, bg='white')
-        graph1.image = graph1_tkimage
-        graph1.pack(expand=True, fill='both')
-        graph_main.add(page1, text='Population per year')
+        a = NotebookTab(self.graph_notebook, 'test_1', 'bar')
+        self.graph_notebook.add(a)
 
-        # Page 2 (In notebook)
-        page2 = ttk.Frame(graph_main)
-        graph2_image = ImageTk.PhotoImage(Image.open('Images/death.jpg'))
-        graph2 = tk.Label(page2, image=graph2_image, bg='white')
-        graph2.image = graph2_image
-        graph2.pack(expand=True, fill='both')
-        graph_main.add(page2, text='Deaths per year')
-
-        # Graph info
-        info = tk.Frame(mid_frame, borderwidth=1, relief='sunken')
-        info.pack(side=tk.BOTTOM, fill='both')
-
-        info_label = ttk.Label(info, text='Graph Type', font='Times 12')
-        info_label.pack(side=tk.LEFT)
-
-        # Save graph
-        save_image = Image.open('Images/save.png')
-        save_image = ImageTk.PhotoImage(save_image)
-        graph_save = ttk.Button(info, image=save_image)
-        graph_save.image = save_image
-        graph_save.pack(side=tk.RIGHT)
+        return mid_frame
 
     def rightFrame(self):
 
-        right_frame = tk.Frame(self.parent, height=500, width=250, borderwidth=1)
-        right_frame.pack(side=tk.LEFT, fill='both', expand=True)
+        right_frame = tk.Frame(self.parent, borderwidth=1)
 
         # Title
         title_frame = tk.Frame(right_frame, borderwidth=1)
@@ -143,26 +263,33 @@ class Window1:
         title = ttk.Label(title_frame, text="Output", font=self.titleFont)
         title.pack()
 
-    def save_graph(self):
-        """ TO BE IMPLEMENTED
-        Save the graph as jpg to the filesystem."""
-        pass
+        return right_frame
+
+    def label_info(self):
+
+        window = tk.Toplevel()
+        self.plot_title = tk.Entry(window)
+        self.plot_title.pack()
+
+        set_button = ttk.Button(window, text="Save and Exit", command=window.destroy)
+        set_button.pack()
 
     def plot(self):
-        """ TO BE IMPLEMENTED
-        Plot the graph using the details taken from the left frame.
-        """
-        pass
+
+        data = pd.read_csv(r"D:\Computer Files\Documents\University\Year 2\Visualisation\Datasets\Birth.csv")
+        title = 'test 2'
+        tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
+        tab.plot(data)
+        self.graph_notebook.add(tab, text=title)
 
 
 def main():
-
     # Root Window Configuration
     root = tk.Tk()
     root.title('GUI Implementation')
-    root.geometry('1200x500')
+    # root.geometry('1200x500')
     root.update()
-    root.resizable(False, False)
+    # root.resizable(False, False)
 
     Window1(root)
     root.mainloop()
