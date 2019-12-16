@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import re
 import pandas as pd
+import os
 
 # Tkinter imports
 import tkinter as tk
@@ -132,7 +133,7 @@ class NotebookTab(tk.Frame):
         graph_save.image = save_image
         graph_save.pack(side=tk.RIGHT)
 
-    def plot(self, data):
+    def plot(self, data, mode, *kwargs):
         names = data.groupby('FirstName')['Lastname'].count().nlargest(10)
         self.fig, ax = plt.subplots(figsize=(7, 5))
         names.plot(kind='bar', ax=ax, title=self.title)
@@ -143,8 +144,13 @@ class NotebookTab(tk.Frame):
 
     def save(self):
         file_types = [('JPEG file', '.jpg'), ('PNG file', '.png')]
+
         filename = filedialog.asksaveasfilename(title='Select file name',
                                                 filetypes=file_types)
+        self.fig.savefig(filename)
+
+        # except:
+        #     pass
 
 
 # Window classes
@@ -171,34 +177,6 @@ class Window1:
         self.left_frame.pack(side=tk.LEFT, fill='both')
         self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
         self.right_frame.pack(side=tk.LEFT, fill='both')
-
-    def update(self, e):
-        """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
-        input. """
-
-        val = self.text_val.get()
-        self.entry['values'] = self.getnames(val)
-
-    def getnames(self, val):
-
-        if val == '':
-            return self.values
-
-        else:
-            regex = re.compile(f'{val}')
-            values = list(filter(regex.match, self.all_names))
-            if len(values) > 10:
-                values = values[0:10]
-                return values
-
-            elif len(values) == 0:
-                regex = re.compile(f'[{val}]')
-                values = list(filter(regex.match, self.all_names))
-
-                if len(values) > 10:
-                    values = values[0:10]
-
-                return values
 
     def leftFrame(self):
         """ Creates the left Frame for the input and the widgets to be placed in it"""
@@ -243,9 +221,18 @@ class Window1:
         self.entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
         self.entry.bind('<KeyRelease>', self.update)
 
+        # Change plot label
+
+        plot_label_frame = ttk.LabelFrame(plot_options_frame, text='Labels', height=100)
+        plot_label_frame.pack(side=tk.BOTTOM, fill='both', pady=5, padx=1)
+
+        label_entries = self.label_entries(plot_label_frame)
+
+        # entries =
+
         # Change Plot Labels
-        change_labels = ttk.Button(plot_options_frame, text='Change Labels', command=self.label_info)
-        change_labels.pack(side=tk.BOTTOM, padx=5, pady=10)
+        # change_labels = ttk.Button(plot_options_frame, text='Change Labels', command=self.label_info)
+        # change_labels.pack(side=tk.BOTTOM, padx=5, pady=10)
 
         return left_frame
 
@@ -258,7 +245,6 @@ class Window1:
         # Notebook stuff
         self.graph_notebook = CustomNotebook(mid_frame, )
         self.graph_notebook.pack(fill='both', expand=True)
-        self.graph_notebook.bind("<<NotebookTabChanged>>", self.test)
 
         a = NotebookTab(self.graph_notebook, 'test_1', 'bar')
         self.graph_notebook.add(a, text='Introduction')
@@ -277,14 +263,49 @@ class Window1:
 
         return right_frame
 
-    def label_info(self):
+    def update(self, e):
+        """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
+        input. """
 
-        window = tk.Toplevel()
-        self.plot_title = tk.Entry(window)
-        self.plot_title.pack()
+        val = self.text_val.get()
+        self.entry['values'] = self.getnames(val)
 
-        set_button = ttk.Button(window, text="Save and Exit", command=window.destroy)
-        set_button.pack()
+    def getnames(self, val):
+
+        if val == '':
+            return self.values
+
+        else:
+            regex = re.compile(f'{val}')
+            values = list(filter(regex.match, self.all_names))
+            if len(values) > 10:
+                values = values[0:10]
+                return values
+
+            elif len(values) == 0:
+                regex = re.compile(f'[{val}]')
+                values = list(filter(regex.match, self.all_names))
+
+                if len(values) > 10:
+                    values = values[0:10]
+
+                return values
+
+    def label_entries(self, parent):
+
+        return_dict = {}
+        entries = ['Title', 'X Label', 'Y Label']
+
+        for entry in entries:
+            row = tk.Frame(parent)
+            lab = ttk.Label(row, width=15, text=entry, anchor='w')
+            ent = ttk.Entry(row)
+            row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+            lab.pack(side=tk.LEFT)
+            ent.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+            return_dict[entry] = ent
+
+        return return_dict
 
     def plot(self):
 
@@ -294,25 +315,27 @@ class Window1:
         else:
             title = 'test 2'
             tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
-            tab.plot(self.data)
+            tab.plot(self.data, mode='')
             self.graph_notebook.add(tab, text=title)
             self.graph_notebook.select(tab)
 
     def get_data(self):
 
         try:
-            file_name = filedialog.askopenfilename()
+            file_types = [('CSV file', '.csv')]
+            file_name = filedialog.askopenfilename(filetypes=file_types)
 
             with open(file_name, 'r', encoding='latin-1') as data_file:
                 df = pd.read_csv(data_file)
 
             self.data = df
+            file_name = os.path.basename(file_name)
+            title = "Reading data"
+            message = f"The file ({file_name}) has been read."
+            messagebox.showinfo(title, message)
+
         except FileNotFoundError:
             pass
-
-    def test(self, *args):
-
-        print(self.graph_notebook.tabs())
 
 
 def main():
