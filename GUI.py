@@ -108,7 +108,7 @@ class CustomNotebook(ttk.Notebook):
 
 class NotebookTab(tk.Frame):
 
-    def __init__(self, parent, title, graph_type):
+    def __init__(self, parent, entry):
         """Creates a tab for the custom Notebook.
 
          Variables
@@ -117,12 +117,14 @@ class NotebookTab(tk.Frame):
          graph_type: String representation of the type of graph (ex: bar)
          """
         tk.Frame.__init__(self, parent)
-        self.title = title
-        self.graph_type = graph_type
+        self.entries = entry
+        self.title = entry['Title'].get()
+        self.graph_type = entry['graph type'].get()
 
         # Graph info
         info = tk.Frame(self, borderwidth=1, relief='sunken')
         info.pack(side=tk.BOTTOM, fill='both')
+        graph_type = f"Graph type: {self.graph_type}"
         info_label = ttk.Label(info, text=graph_type, font='Times 12')
         info_label.pack(side=tk.LEFT)
 
@@ -137,6 +139,10 @@ class NotebookTab(tk.Frame):
         names = data.groupby('FirstName')['Lastname'].count().nlargest(10)
         self.fig, ax = plt.subplots(figsize=(7, 5))
         names.plot(kind='bar', ax=ax, title=self.title)
+        xlab = self.entries['X Label'].get()
+        ylab = self.entries['Y Label'].get()
+        ax.set_xlabel()
+        ax.set_ylabel()
         self.fig.tight_layout()
         canvas = FigureCanvasTkAgg(self.fig, master=self)
         canvas.draw()
@@ -168,6 +174,7 @@ class Window1:
         self.parent = parent
         self.titleFont = font.Font(family='Helvetica', size=18, weight=font.BOLD, underline=1)
         self.data = None
+        self.entries = None
 
         # Frame Stuff
         self.left_frame = self.leftFrame()
@@ -201,32 +208,33 @@ class Window1:
         plot_options_frame = tk.Frame(left_frame)
         plot_options_frame.pack(side=tk.BOTTOM, fill='both', expand=True)
 
+        # Change plot label
+        plot_label_frame = ttk.LabelFrame(plot_options_frame, text='Labels', height=100)
+        plot_label_frame.pack(side=tk.BOTTOM, fill='both', pady=5, padx=1)
+
+        self.entries = self.label_entries(plot_label_frame)
+
         # Select Graph Type
         select_frame = tk.Frame(plot_options_frame, borderwidth=1)
         select_frame.pack(side=tk.TOP, fill=tk.X, padx=40, pady=20)
         label_names = ttk.Label(select_frame, text='Select graph type', borderwidth=1, font=('Comic Sans', 11))
         label_names.pack(side='top')
-        graph_list = ['Node', "Hist", "Line"]
+        graph_list = ["Hist", "Node", "Line"]
         graph_name = tk.StringVar()
-        self.graph_type = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
-        self.graph_type.pack(fill=tk.X, pady=5, ipady=5)
+        graph_type = ttk.OptionMenu(select_frame, graph_name, graph_list[0], *graph_list)
+        graph_type.pack(fill=tk.X, pady=5, ipady=5)
+        self.entries['graph type'] = graph_name
 
         # Select Names
         select_names_frame = tk.Frame(plot_options_frame)
         select_names_frame.pack(side=tk.TOP, fill='both')
         select_names_label = ttk.Label(select_names_frame, text='Select Name')
         select_names_label.pack(side=tk.LEFT, padx=5)
-        self.text_val = tk.StringVar()
-        self.entry = ttk.Combobox(select_names_frame, textvariable=self.text_val, values=self.values)
-        self.entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
-        self.entry.bind('<KeyRelease>', self.update)
-
-        # Change plot label
-
-        plot_label_frame = ttk.LabelFrame(plot_options_frame, text='Labels', height=100)
-        plot_label_frame.pack(side=tk.BOTTOM, fill='both', pady=5, padx=1)
-
-        label_entries = self.label_entries(plot_label_frame)
+        text_val = tk.StringVar()
+        entry = ttk.Combobox(select_names_frame, textvariable=text_val, values=self.values)
+        entry.pack(side=tk.LEFT, fill=tk.X, padx=5)
+        entry.bind('<KeyRelease>', lambda event: self.update(text_val, entry))
+        self.entries['name'] = text_val
 
         # entries =
 
@@ -243,10 +251,10 @@ class Window1:
         label.place(x=100, width=100)
 
         # Notebook stuff
-        self.graph_notebook = CustomNotebook(mid_frame, )
+        self.graph_notebook = CustomNotebook(mid_frame)
         self.graph_notebook.pack(fill='both', expand=True)
 
-        a = NotebookTab(self.graph_notebook, 'test_1', 'bar')
+        a = tk.Frame(self.graph_notebook)
         self.graph_notebook.add(a, text='Introduction')
 
         return mid_frame
@@ -263,12 +271,12 @@ class Window1:
 
         return right_frame
 
-    def update(self, e):
+    def update(self, stringvar, entrybox):
         """ Update the names available in the dropdown box for the names. Return the top 10 names that match the
         input. """
 
-        val = self.text_val.get()
-        self.entry['values'] = self.getnames(val)
+        val = stringvar.get()
+        entrybox['values'] = self.getnames(val)
 
     def getnames(self, val):
 
@@ -313,10 +321,9 @@ class Window1:
             error_message = """There is no data provided to the application."""
             messagebox.showerror('Data', error_message)
         else:
-            title = 'test 2'
-            tab = NotebookTab(self.graph_notebook, title=title, graph_type='hist')
+            tab = NotebookTab(self.graph_notebook, entry=self.entries)
             tab.plot(self.data, mode='')
-            self.graph_notebook.add(tab, text=title)
+            self.graph_notebook.add(tab, text=self.entries['Title'].get())
             self.graph_notebook.select(tab)
 
     def get_data(self):
