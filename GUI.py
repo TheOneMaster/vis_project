@@ -467,11 +467,10 @@ class Window1:
             file_types = [('CSV file', '.csv')]
             file_name = filedialog.askopenfilename(filetypes=file_types)
             base_name = os.path.basename(file_name)
-            with open(file_name, 'r', encoding='latin-1') as data_file:
-                df = pd.read_csv(data_file)
-            
             if self.data is not None:
                 del self.data
+            with open(file_name, 'r', encoding='latin-1') as data_file:
+                df = pd.read_csv(data_file)
             
             self.data = df
             self.graph_options.data = df
