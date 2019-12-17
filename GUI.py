@@ -468,7 +468,7 @@ class Window1:
             file_name = filedialog.askopenfilename(filetypes=file_types)
             base_name = os.path.basename(file_name)
             if self.data is not None:
-                del self.data
+                self.data = None
             with open(file_name, 'r', encoding='latin-1') as data_file:
                 df = pd.read_csv(data_file)
             
@@ -480,7 +480,8 @@ class Window1:
             self.graph_options.update()
 
         except FileNotFoundError:
-            pass
+            message = "Hey numbskull, you didn't select the file properly."
+            messagebox.showerror(title='NUMBSKULL ALERT', message=message)
 
     def check_tabs(self, event):
         
