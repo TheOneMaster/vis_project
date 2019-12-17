@@ -136,12 +136,13 @@ class NotebookTab(tk.Frame):
         graph_save.image = save_image
         graph_save.pack(side=tk.RIGHT)
 
-    def plot(self, data, *kwargs):
+    def plot(self, data, *args, **kwargs):
         mode = self.entries['graph type'].get()
 
         if mode == 'Barplot':
-            column = self.entries['']
-            names = data.groupby('FirstName')['Lastname'].count().nlargest(10)
+            # column = self.entries['']
+            groupby_column = kwargs['barplot'][0].get()
+            names = data.groupby(groupby_column).count().iloc[:, 0].nlargest(10)
             ax = self.fig.add_subplot()
             names.plot(kind='bar', ax=ax, title=self.title)
             xlab = self.entries['X Label'].get()
@@ -181,74 +182,123 @@ class NotebookTab(tk.Frame):
 
 
 class GraphOptions(ttk.LabelFrame):
+    """
+    Creates a ttk LabelFrame widget with multiple user input widgets to apply options to the graph to be 
+    plotted
+    """
 
     def __init__(self, parent, data):
         ttk.LabelFrame.__init__(self, parent, text='Graph Options')
         self.keys = {
             "Barplot": self.barplot_opt,
             "Wordcloud": self.wordcloud_opt,
-            # "Node": self.node_opt,
-            # "Line": self.line_opt
+            "Node": self.node_opt,
+            "Line": self.line_opt
         }
         self.parent = parent
         self.data = data
+        self.keywords = {
+            'barplot': None,
+            'wordcloud': None,
+            'line': None,
+            'Node': None
+        }
+        self.frames = {key:value() for (key, value) in self.keys.items()}
 
         name_frame = tk.Frame(self)
         name_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
-        self.graph_name = tk.StringVar()
+
         name_label = ttk.Label(name_frame, text="Graph Type", width=15)
         graph_list = ["Barplot", "Wordcloud", "Node", "Line"]
-        self.values = {val: None for val in graph_list}
-        self.graph_options = ttk.OptionMenu(name_frame, self.graph_name, graph_list[0], *graph_list,
-                                            command=self.on_change)
+        self.graph_name = tk.StringVar()
+        graph_options = ttk.OptionMenu(name_frame, self.graph_name, graph_list[0], *graph_list,
+                                        command=self.update)
+        
         name_label.pack(side=tk.LEFT)
-        self.graph_options.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+        graph_options.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
-        self.barplot_opt()
-        self.wordcloud_opt()
-        self.current = self.values['Barplot']
+        self.current = self.frames['Barplot']
         self.current.pack(fill=tk.X, padx=5, pady=5)
 
     def barplot_opt(self):
+        """
+        Creates the frame to be displayed when the graph type is a barplot. The frame is saved to the 
+        self.frames dictionary with the key "Barplot".
+        
+        Options:
+        X-axis value
+        """
 
         # X-axis options
-        a = self.data
-        options = a.columns if a is not None else ['Not available']
+        columns = self.data.columns if self.data is not None else ['Not available']
         frame = tk.Frame(self)
         x_lab = ttk.Label(frame, text='X-axis', width=15)
         stringvar = tk.StringVar()
-        x_option = ttk.OptionMenu(frame, stringvar, options[0], *options)
-        if options[0] == 'Not available':
+        x_option = ttk.OptionMenu(frame, stringvar, columns[0], *columns)
+        if columns[0] == 'Not available':
             x_option.config(state='disabled')
         else:
             x_option.config(state='enabled')
         x_lab.pack(side=tk.LEFT)
         x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
-        self.values['Barplot'] = frame
+
+        # This works as the return value for the function essentially
+        self.keywords['barplot'] = [stringvar]
+        return frame
 
     def wordcloud_opt(self):
+        """Creates the frame for the wordcloud options.
+        """
         frame = tk.Frame(self)
-        self.values['Wordcloud'] = frame
+
+        # X-axis options
+        columns = self.data.columns if self.data is not None else ['Not available']
+        frame = tk.Frame(self)
+        x_lab = ttk.Label(frame, text='Data', width=15)
+        stringvar = tk.StringVar()
+        x_option = ttk.OptionMenu(frame, stringvar, columns[0], *columns)
+        if columns[0] == 'Not available':
+            x_option.config(state='disabled')
+        else:
+            x_option.config(state='enabled')
+        x_lab.pack(side=tk.LEFT)
+        x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+        
+        self.keywords['wordcloud'] = [stringvar]
+        return frame
 
     def line_opt(self):
         frame = tk.Frame(self)
 
-    def on_change(self, name):
-        self.current.pack_forget()
-        self.current = self.values[name]
-        self.current.pack(fill=tk.X, padx=5, pady=5)
+        return frame
 
-    def update(self):
+    def node_opt(self):
+        frame = tk.Frame(self)
+
+        return frame
+
+    def update(self, name=None):
         """Call when the data is input to the application. Destroys the currently displayed widget and
         replaces it with the new frame with widgets that are specific to the data input."""
-        name = self.graph_name.get()
-        self.keys[name]()
-        self.current.destroy()
-        self.current = self.values['Barplot']
-        self.current.pack(fill=tk.X, padx=5, pady=5)
+        
+        if name is not None:
+            self.current.pack_forget()
+            self.current = self.frames[name]
+            self.current.pack(fill=tk.X, padx=5, pady=5)
+        else:
+            name = self.graph_name.get()
+            self.frames[name].destroy()
+            name_frame = self.keys[name]()
+            self.current = name_frame
+            self.current.pack(fill=tk.X, padx=5, pady=5)
+            for i in self.frames:
+                if i != name:
+                    self.frames[i].destroy()
+                    self.frames[i] = self.keys[i]()
+                else:
+                    self.frames[i] = name_frame
 
 
-# Window classes
 class Window1:
     values = ["Johannes", "Johanna", "Maria", "Cornelis", "Adriana", "Petronella", "Cornelia", "Anna Maria",
               "Johanna Maria", "Adrianus"]
@@ -263,7 +313,7 @@ class Window1:
         self.parent = parent
         self.titleFont = font.Font(family='Helvetica', size=18, weight=font.BOLD, underline=1)
         self.data = None
-        self.entries = {}
+        self.entries = {}   # Stores the widgets that have values that are useful for the plots.
 
         # Frame Stuff
         self.left_frame = self.leftFrame()
@@ -285,10 +335,6 @@ class Window1:
         title = ttk.Label(title_frame, text="Input", font=self.titleFont)
         title.pack()
 
-        # Get Data
-        data_button = ttk.Button(left_frame, command=self.get_data, text='Input data file')
-        data_button.pack(side=tk.TOP)
-
         # Plot Button (Bottom of Frame)
         plt_button = ttk.Button(left_frame, text='PLOT', command=self.plot)
         plt_button.pack(side=tk.BOTTOM, fill=tk.X)
@@ -297,19 +343,20 @@ class Window1:
         plot_options_frame = tk.Frame(left_frame)
         plot_options_frame.pack(side=tk.BOTTOM, fill='both', expand=True)
 
-        # Change plot label
-        plot_label_frame = ttk.LabelFrame(plot_options_frame, text='Labels', height=100)
-        plot_label_frame.pack(side=tk.BOTTOM, fill='both', pady=5, padx=5)
+        """
+        Data modification and preprocessing. Allows for input of data (csv format) to the visualisation tool.
+        Also used for preprocessing. Top of the middle frame.
+        """
 
-        entries = ['Title', 'X Label', 'Y Label']
-        self.label_entries(plot_label_frame, entries, self.entries)
+        data_input_frame = ttk.LabelFrame(plot_options_frame, text='Data entry and preprocessing')
+        data_input_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
 
-        self.graph_options = GraphOptions(plot_options_frame, self.data)
-        self.graph_options.pack(expand=True, fill='both', padx=5, pady=5)
-        self.entries['graph type'] = self.graph_options.graph_name
+        # Get data input
+        data_button = ttk.Button(data_input_frame, command=self.get_data, text='Input data file')
+        data_button.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)      
 
         # Select Names
-        select_names_frame = tk.Frame(plot_options_frame)
+        select_names_frame = tk.Frame(data_input_frame)
         select_names_frame.pack(side=tk.TOP, fill='both', padx=5, pady=5)
         select_names_label = ttk.Label(select_names_frame, text='Select Name', width=15)
         select_names_label.pack(side=tk.LEFT)
@@ -319,20 +366,39 @@ class Window1:
         entry.bind('<KeyRelease>', lambda event: self.update(text_val, entry))
         self.entries['name'] = text_val
 
+        """
+        Change the graph options. Options are dependant on the graph type. Middle of the middle frame.
+        """
+
+        self.graph_options = GraphOptions(plot_options_frame, self.data)
+        self.graph_options.pack(expand=True, fill='both', padx=5, pady=5)
+        self.entries['graph type'] = self.graph_options.graph_name
+
+        """
+        Change the plot labels. So far only the Title, Xlabel and Ylabel can be changed. Bottom of the
+        middle frame.
+        """
+
+        plot_label_frame = ttk.LabelFrame(plot_options_frame, text='Labels', height=100)
+        plot_label_frame.pack(side=tk.BOTTOM, fill='both', pady=5, padx=5)
+
+        entries = ['Title', 'X Label', 'Y Label']
+        self.label_entries(plot_label_frame, entries, self.entries)
+
+
+
+
         return left_frame
 
     def midFrame(self):
 
         mid_frame = tk.Frame(self.parent, borderwidth=2, relief='sunken')
-        label = ttk.Label(mid_frame, text='Plots', font=self.titleFont)
-        label.place(x=100, width=100)
+        self.plotlabel = ttk.Label(mid_frame, text='Plots', font=self.titleFont)
+        self.plotlabel.pack(side=tk.TOP)
 
         # Notebook stuff
         self.graph_notebook = CustomNotebook(mid_frame)
-        self.graph_notebook.pack(fill='both', expand=True)
-
-        a = tk.Frame(self.graph_notebook)
-        self.graph_notebook.add(a, text='Introduction')
+        self.graph_notebook.bind("<<NotebookTabClosed>>", self.check_tabs)
 
         return mid_frame
 
@@ -358,7 +424,7 @@ class Window1:
     def getnames(self, val):
 
         if val == '':
-            return self.values
+            return self.frames
 
         else:
             regex = re.compile(f'{val}')
@@ -381,19 +447,25 @@ class Window1:
     def plot(self):
 
         if self.data is None:
-            error_message = """There is no data provided to the application."""
+            error_message = "There is no data provided to the application."
             messagebox.showerror('Data', error_message)
         else:
             title = self.entries['Title'].get()
             title = title if title != '' else f'graph {len(self.graph_notebook.tabs()) + 1}'
             tab = NotebookTab(self.graph_notebook, entry=self.entries)
-            tab.plot(self.data)
+            tab.plot(self.data, **self.graph_options.keywords)
             self.graph_notebook.add(tab, text=title)
             self.graph_notebook.select(tab)
+
+            if not self.graph_notebook.winfo_ismapped():
+                self.plotlabel.pack_forget()
+                self.graph_notebook.pack(fill='both', expand=True)
 
     def get_data(self):
 
         try:
+            if self.data is not None:
+                del self.data
             file_types = [('CSV file', '.csv')]
             file_name = filedialog.askopenfilename(filetypes=file_types)
             base_name = os.path.basename(file_name)
@@ -409,6 +481,16 @@ class Window1:
 
         except FileNotFoundError:
             pass
+
+    def check_tabs(self, event):
+        
+        tabs = self.graph_notebook.tabs()
+        if len(tabs) == 0:
+            self.graph_notebook.pack_forget()
+            self.plotlabel.pack(side=tk.TOP)
+        else:
+            self.plotlabel.pack_forget()
+            self.graph_notebook.pack(fill='both', expand=True)
 
     @staticmethod
     def label_entries(parent, entries, return_dict):
