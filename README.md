@@ -3,7 +3,7 @@
 Files for the GUI. 
 
 ## Done
-1. Histogram (Names only so far)
+1. Bar plot (All columns)
 2. Save Images
 3. Add data to tool
 4. Custom label entries
