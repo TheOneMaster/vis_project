@@ -146,12 +146,18 @@ class NotebookTab(tk.Frame):
         mode = self.entries['graph type'].get()
 
         if mode == 'Barplot':
+
+            # Get information from the kwargs
             barplot_info = kwargs['barplot']
             groupby_column = barplot_info['x_label'].get()
             categories = barplot_info['categories'].get()
             categories = int(categories) if categories.isdigit() else 10
             categories = categories if categories!='' else 10
+
+            # Perform data manipulation
             names = data.groupby(groupby_column).count().iloc[:, 0].nlargest(categories)
+            
+            # Data visualisation
             ax = self.fig.add_subplot()
             names.plot(kind='bar', ax=ax, title=self.title)
             xlab = self.entries['X Label'].get()
@@ -162,7 +168,14 @@ class NotebookTab(tk.Frame):
                 ax.set_ylabel(ylab)
 
         elif mode == 'Wordcloud':
+
+            # Get info from the kwargs
             wordcloud_info = kwargs['Wordcloud']
+
+            # Data manipulation
+
+            # Data visualisation
+            
             self.wordcloud()
 
         elif mode == 'Node':
