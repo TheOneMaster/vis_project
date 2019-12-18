@@ -107,15 +107,14 @@ class CustomNotebook(ttk.Notebook):
 
 
 class NotebookTab(tk.Frame):
-
+    """Creates a tab for the custom Notebook. \n
+        Variables: \n
+        parent: A CustomNotebook Instance
+        title:  The title for the tab
+        graph_type: String representation of the type of graph (ex: bar)
+    """
     def __init__(self, parent, entry):
-        """Creates a tab for the custom Notebook.
 
-         Variables
-         parent: A CustomNotebook Instance
-         title:  The title for the tab
-         graph_type: String representation of the type of graph (ex: bar)
-         """
         tk.Frame.__init__(self, parent)
         self.entries = entry
         self.title = entry['Title'].get()
@@ -130,8 +129,15 @@ class NotebookTab(tk.Frame):
         info_label.pack(side=tk.LEFT)
 
         # Save graph
-        save_image = Image.open('Images/save.png')
-        save_image = ImageTk.PhotoImage(save_image)
+        data = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
+               AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
+               RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
+               6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
+               /Rrw0i9Z8bFFGF6YxeVdBE2RmF1McWR3hv4Yo9BghNpxrj
+               Dm8D3Wsui0jlMYe3wQolxKqGHQ5oaSKoFNrQsTe4wF8H+gNnzuidTl
+               PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
+               """
+        save_image = tk.PhotoImage(data=data)
         graph_save = ttk.Button(info, image=save_image, command=self.save)
         graph_save.image = save_image
         graph_save.pack(side=tk.RIGHT)
@@ -142,7 +148,8 @@ class NotebookTab(tk.Frame):
         if mode == 'Barplot':
             barplot_info = kwargs['barplot']
             groupby_column = barplot_info['x_label'].get()
-            categories = int(barplot_info['categories'].get())
+            categories = barplot_info['categories'].get()
+            categories = int(categories) if categories.isdigit() else 10
             categories = categories if categories!='' else 10
             names = data.groupby(groupby_column).count().iloc[:, 0].nlargest(categories)
             ax = self.fig.add_subplot()
@@ -155,6 +162,7 @@ class NotebookTab(tk.Frame):
                 ax.set_ylabel(ylab)
 
         elif mode == 'Wordcloud':
+            wordcloud_info = kwargs['Wordcloud']
             self.wordcloud()
 
         elif mode == 'Node':
@@ -313,9 +321,13 @@ class GraphOptions(ttk.LabelFrame):
         replaces it with the new frame with widgets that are specific to the data input."""
         
         if name is not None:
+            if name == 'Wordcloud':
+                message = "The wordcloud visualisation is quite slow. Be aware before attempting to plot this graph."
+                messagebox.showwarning(title='Wordcloud visualisation', message=message)
             self.current.pack_forget()
             self.current = self.frames[name]
             self.current.pack(fill=tk.X, padx=5, pady=5)
+
         else:
             name = self.graph_name.get()
             self.frames[name].destroy()
@@ -543,7 +555,7 @@ def main():
     root = tk.Tk()
     root.title('GUI Implementation')
     root.geometry('1200x500')
-    root.update()
+    # root.update()
     # root.resizable(False, False)
 
     Window1(root)
