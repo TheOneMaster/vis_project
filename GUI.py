@@ -140,9 +140,11 @@ class NotebookTab(tk.Frame):
         mode = self.entries['graph type'].get()
 
         if mode == 'Barplot':
-            # column = self.entries['']
-            groupby_column = kwargs['barplot'][0].get()
-            names = data.groupby(groupby_column).count().iloc[:, 0].nlargest(10)
+            barplot_info = kwargs['barplot']
+            groupby_column = barplot_info['x_label'].get()
+            categories = int(barplot_info['categories'].get())
+            categories = categories if categories!='' else 10
+            names = data.groupby(groupby_column).count().iloc[:, 0].nlargest(categories)
             ax = self.fig.add_subplot()
             names.plot(kind='bar', ax=ax, title=self.title)
             xlab = self.entries['X Label'].get()
@@ -152,8 +154,14 @@ class NotebookTab(tk.Frame):
             if ylab != '':
                 ax.set_ylabel(ylab)
 
-        if mode == 'Wordcloud':
+        elif mode == 'Wordcloud':
             self.wordcloud()
+
+        elif mode == 'Node':
+            self.node()
+
+        elif mode == 'Line':
+            self.mode
 
         self.fig.set_tight_layout(True)
         canvas = FigureCanvasTkAgg(self.fig, master=self)
@@ -206,7 +214,7 @@ class GraphOptions(ttk.LabelFrame):
         self.frames = {key:value() for (key, value) in self.keys.items()}
 
         name_frame = tk.Frame(self)
-        name_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+        name_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
 
         name_label = ttk.Label(name_frame, text="Graph Type", width=15)
         graph_list = ["Barplot", "Wordcloud", "Node", "Line"]
@@ -218,7 +226,7 @@ class GraphOptions(ttk.LabelFrame):
         graph_options.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
         self.current = self.frames['Barplot']
-        self.current.pack(fill=tk.X, padx=5, pady=5)
+        self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
     def barplot_opt(self):
         """
@@ -227,23 +235,47 @@ class GraphOptions(ttk.LabelFrame):
         
         Options:
         X-axis value
+        Number of categories
         """
 
+        frame = tk.Frame(self)
+        widgets_toggle = []
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
-        frame = tk.Frame(self)
-        x_lab = ttk.Label(frame, text='X-axis', width=15)
         stringvar = tk.StringVar()
-        x_option = ttk.OptionMenu(frame, stringvar, columns[0], *columns)
-        if columns[0] == 'Not available':
-            x_option.config(state='disabled')
-        else:
-            x_option.config(state='enabled')
+
+        x_lab_frame = tk.Frame(frame)
+        x_lab_frame.pack(expand=True, fill='both', pady=3)
+
+        x_lab = ttk.Label(x_lab_frame, text='X-axis', width=15)
+        x_option = ttk.OptionMenu(x_lab_frame, stringvar, columns[0], *columns)
+        widgets_toggle.append(x_option)
+        
         x_lab.pack(side=tk.LEFT)
         x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
+        # Number of categories
+        category_frame = tk.Frame(frame)
+        category_frame.pack(expand=True, fill='both', pady=3)
+
+        number_label = ttk.Label(category_frame, text='# of categories', width=15)
+        number_entry = ttk.Entry(category_frame)
+        widgets_toggle.append(number_entry)
+
+        number_label.pack(side=tk.LEFT)
+        number_entry.pack(side=tk.RIGHT, fill=tk.X, expand=tk.YES)
+
+
+        if columns[0] == 'Not available':
+            for i in widgets_toggle:
+                i.config(state='disabled')
+
         # This works as the return value for the function essentially
-        self.keywords['barplot'] = [stringvar]
+        keywords_dict = {
+            'x_label': stringvar,
+            'categories': number_entry
+        }
+        self.keywords['barplot'] = keywords_dict
         return frame
 
     def wordcloud_opt(self):
@@ -253,7 +285,6 @@ class GraphOptions(ttk.LabelFrame):
 
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
-        frame = tk.Frame(self)
         x_lab = ttk.Label(frame, text='Data', width=15)
         stringvar = tk.StringVar()
         x_option = ttk.OptionMenu(frame, stringvar, columns[0], *columns)
@@ -290,7 +321,7 @@ class GraphOptions(ttk.LabelFrame):
             self.frames[name].destroy()
             name_frame = self.keys[name]()
             self.current = name_frame
-            self.current.pack(fill=tk.X, padx=5, pady=5)
+            self.current.pack(fill=tk.X, padx=5)
             for i in self.frames:
                 if i != name:
                     self.frames[i].destroy()
@@ -300,6 +331,7 @@ class GraphOptions(ttk.LabelFrame):
 
 
 class Window1:
+    
     values = ["Johannes", "Johanna", "Maria", "Cornelis", "Adriana", "Petronella", "Cornelia", "Anna Maria",
               "Johanna Maria", "Adrianus"]
 
