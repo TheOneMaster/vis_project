@@ -10,10 +10,11 @@ import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
 from PIL import ImageTk, Image
 
-# Matplotlib libraries
+# Plotting Libraries
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.animation as anim
+from wordcloud import WordCloud
 
 
 # Custom Tkinter Widgets
@@ -106,7 +107,7 @@ class CustomNotebook(ttk.Notebook):
         ])
 
 
-class NotebookTab(tk.Frame):
+class NotebookTab(ttk.Frame):
     """Creates a tab for the custom Notebook. \n
         Variables: \n
         parent: A CustomNotebook Instance
@@ -115,14 +116,15 @@ class NotebookTab(tk.Frame):
     """
     def __init__(self, parent, entry):
 
-        tk.Frame.__init__(self, parent)
+        ttk.Frame.__init__(self, parent)
         self.entries = entry
         self.title = entry['Title'].get()
         self.graph_type = entry['graph type'].get()
         self.fig = plt.Figure(figsize=(7, 5))
+        self.is_wordcloud = False
 
         # Graph info
-        info = tk.Frame(self, borderwidth=1, relief='sunken')
+        info = ttk.Frame(self, borderwidth=1, relief='sunken')
         info.pack(side=tk.BOTTOM, fill='both')
         graph_type = f"Graph type: {self.graph_type}"
         info_label = ttk.Label(info, text=graph_type, font='Times 12')
@@ -169,14 +171,22 @@ class NotebookTab(tk.Frame):
 
         elif mode == 'Wordcloud':
 
+            self.is_wordcloud = True
             # Get info from the kwargs
-            wordcloud_info = kwargs['Wordcloud']
+            wordcloud_info = kwargs['wordcloud']
+            groupby_column = wordcloud_info['values'].get()
+            # bg = wordcloud_info['background'].get() if wordcloud_info['background'].get()!=None else 'white'
 
             # Data manipulation
+            names = data.groupby(groupby_column).count().iloc[:,0]
+            names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
+            names = names.to_dict()
 
             # Data visualisation
-            
-            self.wordcloud()
+            self.wordcloud = WordCloud(background_color='white', height=1500, width=2100).generate_from_frequencies(names)
+            ax = self.fig.add_subplot()
+            ax.imshow(self.wordcloud, interpolation='bilinear')
+            ax.set_axis_off()
 
         elif mode == 'Node':
             self.node()
@@ -192,9 +202,6 @@ class NotebookTab(tk.Frame):
         for i in ['Title', 'X Label', 'Y Label']:
             self.entries[i].delete(0, 'end')
 
-    def wordcloud(self):
-        pass
-
     def save(self):
 
         file_types = [('JPEG file', '.jpg'), ('PNG file', '.png')]
@@ -205,7 +212,10 @@ class NotebookTab(tk.Frame):
         if filename == '':
             pass
         else:
-            self.fig.savefig(filename)
+            if self.is_wordcloud:
+                self.wordcloud.to_file(filename)
+            else:
+                self.fig.savefig(filename)
         # except:
         #     pass
 
@@ -234,7 +244,7 @@ class GraphOptions(ttk.LabelFrame):
         }
         self.frames = {key:value() for (key, value) in self.keys.items()}
 
-        name_frame = tk.Frame(self)
+        name_frame = ttk.Frame(self)
         name_frame.pack(side=tk.TOP, fill=tk.X, padx=5)
 
         name_label = ttk.Label(name_frame, text="Graph Type", width=15)
@@ -259,13 +269,13 @@ class GraphOptions(ttk.LabelFrame):
         Number of categories
         """
 
-        frame = tk.Frame(self)
+        frame = ttk.Frame(self)
         widgets_toggle = []
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
         stringvar = tk.StringVar()
 
-        x_lab_frame = tk.Frame(frame)
+        x_lab_frame = ttk.Frame(frame)
         x_lab_frame.pack(expand=True, fill='both', pady=3)
 
         x_lab = ttk.Label(x_lab_frame, text='X-axis', width=15)
@@ -276,7 +286,7 @@ class GraphOptions(ttk.LabelFrame):
         x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
 
         # Number of categories
-        category_frame = tk.Frame(frame)
+        category_frame = ttk.Frame(frame)
         category_frame.pack(expand=True, fill='both', pady=3)
 
         number_label = ttk.Label(category_frame, text='# of categories', width=15)
@@ -302,13 +312,17 @@ class GraphOptions(ttk.LabelFrame):
     def wordcloud_opt(self):
         """Creates the frame for the wordcloud options.
         """
-        frame = tk.Frame(self)
+        frame = ttk.Frame(self)
 
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
-        x_lab = ttk.Label(frame, text='Data', width=15)
         stringvar = tk.StringVar()
-        x_option = ttk.OptionMenu(frame, stringvar, columns[0], *columns)
+
+        x_lab_frame = ttk.Frame(frame)
+        x_lab_frame.pack(expand=True, fill='both', pady=3)
+
+        x_lab = ttk.Label(x_lab_frame, text='Data', width=15)
+        x_option = ttk.OptionMenu(x_lab_frame, stringvar, columns[0], *columns)
         if columns[0] == 'Not available':
             x_option.config(state='disabled')
         else:
@@ -316,16 +330,22 @@ class GraphOptions(ttk.LabelFrame):
         x_lab.pack(side=tk.LEFT)
         x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
         
-        self.keywords['wordcloud'] = [stringvar]
+        keyword_dict = {
+            'values': stringvar,
+            'background': None,
+        }
+
+        self.keywords['wordcloud'] = keyword_dict
+
         return frame
 
     def line_opt(self):
-        frame = tk.Frame(self)
+        frame = ttk.Frame(self)
 
         return frame
 
     def node_opt(self):
-        frame = tk.Frame(self)
+        frame = ttk.Frame(self)
 
         return frame
 
@@ -334,12 +354,9 @@ class GraphOptions(ttk.LabelFrame):
         replaces it with the new frame with widgets that are specific to the data input."""
         
         if name is not None:
-            if name == 'Wordcloud':
-                message = "The wordcloud visualisation is quite slow. Be aware before attempting to plot this graph."
-                messagebox.showwarning(title='Wordcloud visualisation', message=message)
             self.current.pack_forget()
             self.current = self.frames[name]
-            self.current.pack(fill=tk.X, padx=5, pady=5)
+            self.current.pack(fill=tk.X, padx=5)
 
         else:
             name = self.graph_name.get()
@@ -384,7 +401,7 @@ class Window1:
     def leftFrame(self):
         """ Creates the left Frame for the input and the widgets to be placed in it"""
 
-        left_frame = tk.Frame(self.parent, borderwidth=1)
+        left_frame = ttk.Frame(self.parent, borderwidth=1)
 
         # Title (Top of Frame)
         title_frame = ttk.Frame(left_frame)
@@ -397,7 +414,7 @@ class Window1:
         plt_button.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Plot options (Middle of Frame)
-        plot_options_frame = tk.Frame(left_frame)
+        plot_options_frame = ttk.Frame(left_frame)
         plot_options_frame.pack(side=tk.BOTTOM, fill='both', expand=True)
 
         """
@@ -413,7 +430,7 @@ class Window1:
         data_button.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)      
 
         # Select Names
-        select_names_frame = tk.Frame(data_input_frame)
+        select_names_frame = ttk.Frame(data_input_frame)
         select_names_frame.pack(side=tk.TOP, fill='both', padx=5, pady=5)
         select_names_label = ttk.Label(select_names_frame, text='Select Name', width=15)
         select_names_label.pack(side=tk.LEFT)
@@ -449,7 +466,7 @@ class Window1:
 
     def midFrame(self):
 
-        mid_frame = tk.Frame(self.parent, borderwidth=2, relief='sunken')
+        mid_frame = ttk.Frame(self.parent, borderwidth=2, relief='sunken')
         self.plotlabel = ttk.Label(mid_frame, text='Plots', font=self.titleFont)
         self.plotlabel.pack(side=tk.TOP)
 
@@ -461,10 +478,10 @@ class Window1:
 
     def rightFrame(self):
 
-        right_frame = tk.Frame(self.parent, borderwidth=1)
+        right_frame = ttk.Frame(self.parent, borderwidth=1)
 
         # Title
-        title_frame = tk.Frame(right_frame, borderwidth=1)
+        title_frame = ttk.Frame(right_frame, borderwidth=1)
         title_frame.pack(side=tk.TOP, fill='both', expand=True)
         title = ttk.Label(title_frame, text="Output", font=self.titleFont)
         title.pack()
@@ -554,7 +571,7 @@ class Window1:
     def label_entries(parent, entries, return_dict):
 
         for entry in entries:
-            row = tk.Frame(parent)
+            row = ttk.Frame(parent)
             lab = ttk.Label(row, width=15, text=entry, anchor='w')
             ent = ttk.Entry(row)
             row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
