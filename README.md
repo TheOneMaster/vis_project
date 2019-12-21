@@ -15,3 +15,4 @@ Files for the GUI.
 * Output tab (Unsure what to add)
 * Additional input (Year selection, etc)
 * Maybe graph info of some sort (summary of data used for plotting, etc)
+
