@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, font, filedialog
+from tkinter import ttk, font, filedialog, messagebox
 
 import numpy as np
 from pandas import read_csv
@@ -107,13 +107,27 @@ class NotebookTab(ttk.Frame):
 
 class LabelFrameInput(ttk.LabelFrame):
 
+    """
+    Creates a ttk labelframe with the widgets passed through the inputs argument. 
+    The primary argument is used to distinguish those instances that have a widget centered at the top (graph_options and data_entry)
+
+    inputs argument format:
+    (widget_name, {label:name, kwarg:value})
+
+    Explanation:
+    widget_name - a string representaition of the type of widget to make (according to key)
+    label - The label used to explain the widget. Placed to the left of the widget
+    """
+
     key = {
         'entry': ttk.Entry,
         'optionmenu': ttk.OptionMenu,
-        'button': ttk.Button
+        'button': ttk.Button,
+        'combo': ttk.Combobox
     }
 
     def __init__(self, master, inputs, primary=None, **kwargs):
+
         command = kwargs.pop('command') if 'command' in kwargs else None
 
         super().__init__(master, **kwargs)
@@ -167,7 +181,7 @@ class LabelFrameInput(ttk.LabelFrame):
             label_str = kwargs.pop('label')
             label = ttk.Label(frame, text=label_str, width=15, anchor='sw')
 
-            if widget == 'optionmenu':
+            if widget in {'optionmenu', 'combo'}:
                 stringvar = tk.StringVar()
                 options = kwargs.pop('options')
                 widget = self.key[widget](
@@ -208,11 +222,15 @@ class LabelFrameInput(ttk.LabelFrame):
                 self.frames, self.values = self.create_frame(self.inputs)
                 self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
 
-        self.current.pack_forget()
+        else:
+            self.current.pack_forget()
 
-        if name in self.frames:
-            self.current = self.frames[name]
-            self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
+            if name in self.frames:
+                self.current = self.frames[name]
+                self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
+
+    def get_names(self, input):
+        pass
 
 
 class MainWindow(ttk.Frame):
@@ -228,20 +246,20 @@ class MainWindow(ttk.Frame):
         self.right_frame = ttk.Frame(self)
         self.data = None
 
+        """
+        Widgets and Frames for the left side of the application (Data entry)
+        """
         # Data entry
 
         input_options = [('entry', {'label': 'test'})]
-
         self.data_input = LabelFrameInput(
             self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing')
 
         # Graph Options
         barplot_widgets = [('optionmenu', {'label': 'Column', 'options': ['Not available']}),
                            ('entry', {'label': '# of categories'})]
-
         wordcloud_widgets = [
             ('optionmenu', {'label': 'Column', 'options': ['Not available']})]
-
         graph_options = {
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets
@@ -255,11 +273,23 @@ class MainWindow(ttk.Frame):
         self.plot_labels = LabelFrameInput(
             self.left_frame, plot_labels, text='Graph Labels')
 
+        plot_btn = ttk.Button(self.left_frame, text='Plot', command=self.plot)
+        plot_btn.pack(side=tk.BOTTOM, fill=tk.X)
+
         self.data_input.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.plot_labels.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
         self.graph_options.pack(side=tk.TOP, fill='both',
                                 expand=True, padx=5, pady=5)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
+        """
+        Widgets and frames for the middle of the application (Plots)
+        """
+
+        notebook = ttk.Notebook(self.mid_frame)
+
+        notebook.pack(fill='both', expand=True)
+
+        self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
     def get_data(self):
 
@@ -290,9 +320,17 @@ class MainWindow(ttk.Frame):
         except:
             pass
 
+    def plot(self):
+
+        if self.data is None:
+            error = "There is no data provided to the application."
+            messagebox.showerror(title='Data Missing', message=error)
+
 
 def main():
     root = tk.Tk()
+    root.title('Visualisation Tool')
+    root.geometry('1200x800')
 
     window_1 = MainWindow(root)
     window_1.pack(expand=True, fill='both')
