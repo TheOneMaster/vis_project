@@ -271,6 +271,7 @@ class GraphOptions(ttk.LabelFrame):
 
         frame = ttk.Frame(self)
         widgets_toggle = []
+        
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
         stringvar = tk.StringVar()
@@ -296,7 +297,7 @@ class GraphOptions(ttk.LabelFrame):
         number_label.pack(side=tk.LEFT)
         number_entry.pack(side=tk.RIGHT, fill=tk.X, expand=tk.YES)
 
-
+        # Toggle widget states
         if columns[0] == 'Not available':
             for i in widgets_toggle:
                 i.config(state='disabled')
@@ -313,6 +314,7 @@ class GraphOptions(ttk.LabelFrame):
         """Creates the frame for the wordcloud options.
         """
         frame = ttk.Frame(self)
+        widgets_toggle = []
 
         # X-axis options
         columns = self.data.columns if self.data is not None else ['Not available']
@@ -323,12 +325,18 @@ class GraphOptions(ttk.LabelFrame):
 
         x_lab = ttk.Label(x_lab_frame, text='Data', width=15)
         x_option = ttk.OptionMenu(x_lab_frame, stringvar, columns[0], *columns)
+
+        widgets_toggle.append(x_option)
+
+        # Toggle widgets state based on whether data is available
         if columns[0] == 'Not available':
             x_option.config(state='disabled')
         else:
             x_option.config(state='enabled')
         x_lab.pack(side=tk.LEFT)
         x_option.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+
+        # Background colour
         
         keyword_dict = {
             'values': stringvar,
@@ -458,10 +466,6 @@ class Window1:
 
         entries = ['Title', 'X Label', 'Y Label']
         self.label_entries(plot_label_frame, entries, self.entries)
-
-
-
-
         return left_frame
 
     def midFrame(self):
