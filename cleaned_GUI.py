@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
-
 import numpy as np
 from pandas import read_csv
 import re
@@ -115,7 +114,9 @@ class LabelFrameInput(ttk.LabelFrame):
     (widget_name, {label:name, kwarg:value})
 
     Explanation:
+
     widget_name - a string representaition of the type of widget to make (according to key)
+
     label - The label used to explain the widget. Placed to the left of the widget
     """
 
@@ -325,7 +326,9 @@ class MainWindow(ttk.Frame):
         if self.data is None:
             error = "There is no data provided to the application."
             messagebox.showerror(title='Data Missing', message=error)
-
+        else:
+            name = self.graph_options.graph_type.get()
+            print(name)
 
 def main():
     root = tk.Tk()
