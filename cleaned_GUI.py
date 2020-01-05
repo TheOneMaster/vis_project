@@ -1,11 +1,14 @@
 import tkinter as tk
-from tkinter import ttk, font, filedialog
+from tkinter import ttk, font, filedialog, messagebox
 
 import numpy as np
 from pandas import read_csv
 import re
 from copy import deepcopy
 
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import wordcloud as wc
 
 class CustomNotebook(ttk.Notebook):
     """A ttk Notebook with close buttons on each tab"""
@@ -101,8 +104,59 @@ class CustomNotebook(ttk.Notebook):
 
 class NotebookTab(ttk.Frame):
 
-    def __init__(self, master, *args, **kwargs):
+    def __init__(self, master, data, kind, options, labels, *args, **kwargs):
         super().__init__(master=master, **kwargs)
+
+        plot_types = {
+            'Barplot': self.barplot,
+            'Wordcloud': self.wordcloud,
+            'Icicle': self.icicle
+        }
+
+        # plot_types[kind](data, options)
+
+        info = ttk.Frame(self, borderwidth=1, relief='sunken')
+        info.pack(side=tk.BOTTOM, fill=tk.X)
+
+        graph_type = f'Graph type: {kind}'
+        info_label = ttk.Label(info, text=graph_type)
+        info_label.pack(side=tk.LEFT)
+
+        self.figure = plot_types[kind](data=data, options=options, labels=labels)
+
+        title = labels['Title'].get()
+        title = title if title != '' else None
+        
+        if title is not None:
+            self.figure.suptitle(title)
+
+        self.figure.set_tight_layout(True)
+
+        canvas = FigureCanvasTkAgg(self.figure, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
+        
+    def wordcloud(self, data, options, labels):
+        figure = plt.Figure(figsize=(7, 5))
+        groupby_column = options['Column'].get()
+
+        # Data manipulation
+        names = data.groupby(groupby_column).count().iloc[:, 0]
+        names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
+        names = names.to_dict()
+
+        self.wordcloud = wc.WordCloud(width=2100, height=1500).generate_from_frequencies(names)
+        ax = figure.add_subplot()
+        ax.imshow(self.wordcloud, interpolation='bilinear')
+        ax.set_axis_off()
+
+        return figure
+
+    def barplot(self, data, options, labels):
+        pass
+
+    def icicle(self, data, options, labels):
+        pass
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -127,7 +181,7 @@ class LabelFrameInput(ttk.LabelFrame):
 
             frame = ttk.Frame(self)
             graph_options_lab = ttk.Label(frame, text='Graph Type', width=15)
-            options = ['Barplot', 'Wordcloud', 'Line', 'Node']
+            options = ['Barplot', 'Wordcloud', 'Line', 'Node', 'Icicle']
             self.graph_type = tk.StringVar()
             graph_options_opt = ttk.OptionMenu(
                 frame, self.graph_type, options[0], *options, command=self.update)
@@ -148,8 +202,7 @@ class LabelFrameInput(ttk.LabelFrame):
 
             if primary == 'data_input':
                 frame = ttk.Frame(self)
-                data_input = ttk.Button(
-                    frame, text='Select data file', command=command)
+                data_input = ttk.Button(frame, text='Select data file', command=command)
                 data_input.pack(fill='both')
                 frame.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
 
@@ -173,6 +226,9 @@ class LabelFrameInput(ttk.LabelFrame):
                 widget = self.key[widget](
                     frame, stringvar, options[0], *options, **kwargs)
                 entry_widget[label_str] = stringvar
+
+            elif widget == 'combo':
+                pass
             else:
                 widget = self.key[widget](frame, **kwargs)
                 entry_widget[label_str] = widget
@@ -203,16 +259,16 @@ class LabelFrameInput(ttk.LabelFrame):
                         self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
             else:
-                for frames in self.frames:
-                    frames.destroy()
+                self.frames.destroy()
                 self.frames, self.values = self.create_frame(self.inputs)
                 self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
 
-        self.current.pack_forget()
+        else:
+            self.current.pack_forget()
 
-        if name in self.frames:
-            self.current = self.frames[name]
-            self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
+            if name in self.frames:
+                self.current = self.frames[name]
+                self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
 
 class MainWindow(ttk.Frame):
@@ -228,6 +284,9 @@ class MainWindow(ttk.Frame):
         self.right_frame = ttk.Frame(self)
         self.data = None
 
+        """
+        Left frame widgets
+        """
         # Data entry
 
         input_options = [('entry', {'label': 'test'})]
@@ -250,10 +309,13 @@ class MainWindow(ttk.Frame):
             self.left_frame, graph_options, text='Graph Options', primary='graph_options')
 
         # Plot labels
-        plot_labels = [('entry', {'label': 'Title'}), ('entry', {
+        plot_labels = [('entry', {'label': 'Title'}), ('entry', {'label': 'Subtitle'}), ('entry', {
             'label': 'Y Label'}), ('entry', {'label': 'X Label'})]
         self.plot_labels = LabelFrameInput(
             self.left_frame, plot_labels, text='Graph Labels')
+
+        plot_btn = ttk.Button(self.left_frame, text='Plot', command=self.plot)
+        plot_btn.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
 
         self.data_input.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.plot_labels.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
@@ -261,18 +323,26 @@ class MainWindow(ttk.Frame):
                                 expand=True, padx=5, pady=5)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
 
+        """
+        Middle frame widgets
+        """
+        # Notebook
+        self.notebook = CustomNotebook(self.mid_frame)
+        self.notebook.bind("<<NotebookTabClosed>>", self.check_tabs)
+        self.notebook.pack(fill='both', expand=True)
+
+        self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
+
     def get_data(self):
 
         try:
             file_types = [('CSV files', '.csv')]
             filename = filedialog.askopenfilename(filetypes=file_types)
 
-            with open(filename, 'r') as data_file:
+            with open(filename, 'r', encoding='utf-8') as data_file:
                 data = read_csv(data_file)
-
-            self.data = data
-            self.graph_options.is_data = True
-
+                self.data = data
+ 
             df_columns = data.columns
 
             barplot_widgets = [('optionmenu', {'label': 'Column', 'options': df_columns}),
@@ -285,20 +355,65 @@ class MainWindow(ttk.Frame):
                 'Barplot': barplot_widgets,
                 'Wordcloud': wordcloud_widgets
             }
+
+            self.data_input.is_data = True
+            self.graph_options.is_data = True
+            self.plot_labels.is_data = True
+
+            messagebox.showinfo(title='Data entry', message='File has been read.')
+
+            self.data_input.update()
             self.graph_options.update()
+            self.plot_labels.update()
 
+        except FileNotFoundError:
+            title = 'Data entry'
+            message = 'File was not selected properly. Please select file properly.'
+            messagebox.showerror(title=title, message=message)
+            
         except:
-            pass
+            title = 'Unknown Error'
+            message = 'If you are seeing this, I don\'t know how you got here'
+            messagebox.showerror(title=title, message=message)
 
+    def plot(self):
+        
+        if self.data is None:
+            title = 'No Data'
+            message = 'There is no data provided to the application.'
+            messagebox.showerror(title=title, message=message)
+        else:
+            kind = self.graph_options.graph_type.get()
+            options = self.graph_options.values[kind]
+            labels = self.plot_labels.values
+
+            frame = NotebookTab(self.notebook, data=self.data, kind=kind, options=options, labels=labels)
+            print(frame)
+            title = labels['Title'].get()
+            title = title if title != '' else f'graph {len(self.notebook.tabs()) + 1}'
+            title = f'{kind} - {title}'
+            self.notebook.add(frame, text=title)
+            self.notebook.select(frame)
+
+    def check_tabs(self, event):
+        tabs = self.notebook.tabs()
+        num = len(tabs)
+
+        if num > 0:
+
+            self.notebook.pack(fill='both', expand=True)
+        else:
+            self.notebook.pack_forget()
 
 def main():
     root = tk.Tk()
+    root.title('GUI Implementation')
+    root.geometry('1200x500')
 
     window_1 = MainWindow(root)
     window_1.pack(expand=True, fill='both')
 
     root.mainloop()
-
 
 if __name__ == "__main__":
     main()
