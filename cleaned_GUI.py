@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
-
 import numpy as np
 from pandas import read_csv
 import re
@@ -122,52 +121,92 @@ class NotebookTab(ttk.Frame):
         info_label = ttk.Label(info, text=graph_type)
         info_label.pack(side=tk.LEFT)
 
+        data = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
+               AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
+               RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
+               6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
+               /Rrw0i9Z8bFFGF6YxeVdBE2RmF1McWR3hv4Yo9BghNpxrj
+               Dm8D3Wsui0jlMYe3wQolxKqGHQ5oaSKoFNrQsTe4wF8H+gNnzuidTl
+               PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
+               """
+
+        save_img = tk.PhotoImage(data=data)
+        save_btn = ttk.Button(info, image=save_img, command=self.save)
+        save_btn.image = save_img
+        save_btn.pack(side=tk.RIGHT)
+
         self.figure = plot_types[kind](data=data, options=options, labels=labels)
-
-        title = labels['Title'].get()
-        title = title if title != '' else None
         
-        if title is not None:
-            self.figure.suptitle(title)
+        if self.figure is None:
+            pass
+        else:
+            title = labels['Title'].get()
+            title = title if title != '' else None
+            
+            if title is not None:
+                self.figure.suptitle(title)
 
-        self.figure.set_tight_layout(True)
+            self.figure.set_tight_layout(True)
 
-        canvas = FigureCanvasTkAgg(self.figure, master=self)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
+            canvas = FigureCanvasTkAgg(self.figure, master=self)
+            canvas.draw()
+            canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
         
     def wordcloud(self, data, options, labels):
         figure = plt.Figure(figsize=(7, 5))
         groupby_column = options['Column'].get()
 
         # Data manipulation
-        names = data.groupby(groupby_column).count().iloc[:, 0]
-        names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
-        names = names.to_dict()
-
-        self.wordcloud = wc.WordCloud(width=2100, height=1500).generate_from_frequencies(names)
-        ax = figure.add_subplot()
-        ax.imshow(self.wordcloud, interpolation='bilinear')
-        ax.set_axis_off()
-
-        return figure
-
+        try:
+            names = data.groupby(groupby_column).count().iloc[:, 0]
+            names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
+            names = names.to_dict()
+            self.wordcloud = wc.WordCloud(width=2100, height=1500).generate_from_frequencies(names)
+            ax = figure.add_subplot()
+            ax.imshow(self.wordcloud, interpolation='bilinear')
+            ax.set_axis_off()
+            return figure
+        
+        except AttributeError:
+            message = 'The chosen column does not consist of strings'
+            messagebox.showerror(title='Column Choice', message=message)
+            return None
+        
     def barplot(self, data, options, labels):
         pass
 
     def icicle(self, data, options, labels):
         pass
 
+    def save(self):
+        pass
+
 
 class LabelFrameInput(ttk.LabelFrame):
+
+    """
+    Creates a ttk labelframe with the widgets passed through the inputs argument. 
+    The primary argument is used to distinguish those instances that have a widget centered at the top (graph_options and data_entry)
+
+    inputs argument format:
+    (widget_name, {label:name, kwarg:value})
+
+    Explanation:
+
+    widget_name - a string representaition of the type of widget to make (according to key)
+
+    label - The label used to explain the widget. Placed to the left of the widget
+    """
 
     key = {
         'entry': ttk.Entry,
         'optionmenu': ttk.OptionMenu,
-        'button': ttk.Button
+        'button': ttk.Button,
+        'combo': ttk.Combobox
     }
 
     def __init__(self, master, inputs, primary=None, **kwargs):
+
         command = kwargs.pop('command') if 'command' in kwargs else None
 
         super().__init__(master, **kwargs)
@@ -220,7 +259,7 @@ class LabelFrameInput(ttk.LabelFrame):
             label_str = kwargs.pop('label')
             label = ttk.Label(frame, text=label_str, width=15, anchor='sw')
 
-            if widget == 'optionmenu':
+            if widget in {'optionmenu', 'combo'}:
                 stringvar = tk.StringVar()
                 options = kwargs.pop('options')
                 widget = self.key[widget](
@@ -290,17 +329,14 @@ class MainWindow(ttk.Frame):
         # Data entry
 
         input_options = [('entry', {'label': 'test'})]
-
         self.data_input = LabelFrameInput(
             self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing')
 
         # Graph Options
         barplot_widgets = [('optionmenu', {'label': 'Column', 'options': ['Not available']}),
                            ('entry', {'label': '# of categories'})]
-
         wordcloud_widgets = [
             ('optionmenu', {'label': 'Column', 'options': ['Not available']})]
-
         graph_options = {
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets
@@ -388,7 +424,6 @@ class MainWindow(ttk.Frame):
             labels = self.plot_labels.values
 
             frame = NotebookTab(self.notebook, data=self.data, kind=kind, options=options, labels=labels)
-            print(frame)
             title = labels['Title'].get()
             title = title if title != '' else f'graph {len(self.notebook.tabs()) + 1}'
             title = f'{kind} - {title}'
