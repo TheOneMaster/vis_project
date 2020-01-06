@@ -7,7 +7,7 @@ from copy import deepcopy
 import os
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import wordcloud as wc
 
 class CustomNotebook(ttk.Notebook):
@@ -118,26 +118,26 @@ class NotebookTab(ttk.Frame):
 
         # plot_types[kind](data, options)
 
-        info = ttk.Frame(self, borderwidth=1, relief='sunken')
-        info.pack(side=tk.BOTTOM, fill=tk.X)
+        # info = ttk.Frame(self, borderwidth=1, relief='sunken')
+        # info.pack(side=tk.BOTTOM, fill=tk.X)
 
-        graph_type = f'Graph type: {kind}'
-        info_label = ttk.Label(info, text=graph_type)
-        info_label.pack(side=tk.LEFT, padx=5)
+        # graph_type = f'Graph type: {kind}'
+        # info_label = ttk.Label(info, text=graph_type)
+        # info_label.pack(side=tk.LEFT, padx=5)
 
-        image = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
-               AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
-               RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
-               6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
-               /Rrw0i9Z8bFFGF6YxeVdBE2RmF1McWR3hv4Yo9BghNpxrj
-               Dm8D3Wsui0jlMYe3wQolxKqGHQ5oaSKoFNrQsTe4wF8H+gNnzuidTl
-               PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
-               """
+        # image = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
+        #        AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
+        #        RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
+        #        6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
+        #        /Rrw0i9Z8bFFGF6YxeVdBE2RmF1McWR3hv4Yo9BghNpxrj
+        #        Dm8D3Wsui0jlMYe3wQolxKqGHQ5oaSKoFNrQsTe4wF8H+gNnzuidTl
+        #        PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
+        #        """
 
-        save_img = tk.PhotoImage(data=image)
-        save_btn = ttk.Button(info, image=save_img, command=self.save)
-        save_btn.image = save_img
-        save_btn.pack(side=tk.RIGHT)
+        # save_img = tk.PhotoImage(data=image)
+        # save_btn = ttk.Button(info, image=save_img, command=self.save)
+        # save_btn.image = save_img
+        # save_btn.pack(side=tk.RIGHT, pady=1, padx=5)
 
         self.figure = plot_types[kind](data=data, options=options, labels=labels)
         
@@ -154,6 +154,10 @@ class NotebookTab(ttk.Frame):
 
             canvas = FigureCanvasTkAgg(self.figure, master=self)
             canvas.draw()
+            # canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
+
+            toolbar = NavigationToolbar2Tk(canvas=canvas, window=self)
+            toolbar.update()
             canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
         
     def wordcloud(self, data, options, labels):
@@ -173,10 +177,11 @@ class NotebookTab(ttk.Frame):
                 bg = None
                 self.fig_transparent = True
 
-            self.wordcloud = wc.WordCloud(background_color=bg, width=2100, height=1500, mode='RGBA').generate_from_frequencies(names)
+            self.wordcloud = wc.WordCloud(background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
             ax = figure.add_subplot()
             ax.imshow(self.wordcloud, interpolation='bilinear')
             ax.set_axis_off()
+            print(self.wordcloud.__class__.__name__)
             return figure
         
         except AttributeError:
@@ -185,7 +190,28 @@ class NotebookTab(ttk.Frame):
             return None
         
     def barplot(self, data, options, labels):
-        pass
+        figure = plt.Figure(figsize=(7, 5))
+        
+        groupby_column = options['Column'].get()
+        number = options['# of categories'].get()
+        number = int(number) if number.isdigit() else 10
+        
+        # Data Manipulation
+        names = data.groupby(groupby_column).count().iloc[:,0].nlargest(number)
+
+        # Data Visualisation
+        ax = figure.add_subplot()
+        names.plot(kind='bar', ax=ax)
+
+        xlab = labels['X Label'].get()
+        ylab = labels['Y Label'].get()
+
+        if not xlab:
+            ax.set_xlabel(xlab)
+        if not ylab:
+            ax.set_ylabel(ylab)
+
+        return figure
 
     def icicle(self, data, options, labels):
         pass
@@ -212,7 +238,6 @@ class NotebookTab(ttk.Frame):
                 self.wordcloud.to_file(filename)
             else:
                 self.figure.savefig(filename)
-
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -292,7 +317,7 @@ class LabelFrameInput(ttk.LabelFrame):
             label_str = kwargs.pop('label')
             label = ttk.Label(frame, text=label_str, width=15, anchor='sw')
 
-            if widget in {'optionmenu', 'combo'}:
+            if widget == 'optionmenu':
                 stringvar = tk.StringVar()
                 options = kwargs.pop('options')
                 widget = self.key[widget](
