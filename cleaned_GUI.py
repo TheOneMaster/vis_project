@@ -2,13 +2,13 @@ import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
 import numpy as np
 from pandas import read_csv
-import re
 from copy import deepcopy
 import os
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import wordcloud as wc
+
 
 class CustomNotebook(ttk.Notebook):
     """A ttk Notebook with close buttons on each tab"""
@@ -107,7 +107,7 @@ class NotebookTab(ttk.Frame):
     def __init__(self, master, notebook, data, kind, options, labels, *args, **kwargs):
         super().__init__(master=master, **kwargs)
 
-        self.fig_transparent = False
+        self.is_empty = True
         self.is_wordcloud = False
 
         plot_types = {
@@ -116,50 +116,38 @@ class NotebookTab(ttk.Frame):
             'Icicle': self.icicle
         }
 
-        # plot_types[kind](data, options)
+        figure = plot_types[kind](data=data, options=options, labels=labels)
 
-        # info = ttk.Frame(self, borderwidth=1, relief='sunken')
-        # info.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # graph_type = f'Graph type: {kind}'
-        # info_label = ttk.Label(info, text=graph_type)
-        # info_label.pack(side=tk.LEFT, padx=5)
-
-        # image = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
-        #        AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
-        #        RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
-        #        6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
-        #        /Rrw0i9Z8bFFGF6YxeVdBE2RmF1McWR3hv4Yo9BghNpxrj
-        #        Dm8D3Wsui0jlMYe3wQolxKqGHQ5oaSKoFNrQsTe4wF8H+gNnzuidTl
-        #        PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
-        #        """
-
-        # save_img = tk.PhotoImage(data=image)
-        # save_btn = ttk.Button(info, image=save_img, command=self.save)
-        # save_btn.image = save_img
-        # save_btn.pack(side=tk.RIGHT, pady=1, padx=5)
-
-        self.figure = plot_types[kind](data=data, options=options, labels=labels)
-        
-        if self.figure is None:
+        if figure is None:
             pass
         else:
+            self.is_empty = False
             title = labels['Title'].get()
             title = title if title != '' else None
-            
+
             if title is not None:
-                self.figure.suptitle(title)
+                figure.suptitle(title)
 
-            self.figure.set_tight_layout(True)
+            figure.set_tight_layout(True)
 
-            canvas = FigureCanvasTkAgg(self.figure, master=self)
-            canvas.draw()
+            canvas = FigureCanvasTkAgg(figure, master=self)
             # canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
 
-            toolbar = NavigationToolbar2Tk(canvas=canvas, window=self)
+            toolbar_kwargs = {
+                'canvas': canvas,
+                'window': self,
+                'figure': figure
+            }
+            
+            if self.is_wordcloud:
+                toolbar_kwargs['figure'] = self.wordcloud
+            
+            toolbar = CustomToolbar(**toolbar_kwargs)
             toolbar.update()
+
+            canvas.draw()
             canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
-        
+
     def wordcloud(self, data, options, labels):
         self.is_wordcloud = True
         figure = plt.Figure(figsize=(7, 5))
@@ -175,29 +163,29 @@ class NotebookTab(ttk.Frame):
             bg = 'white' if bg == '' else bg.lower()
             if bg == 'transparent':
                 bg = None
-                self.fig_transparent = True
 
-            self.wordcloud = wc.WordCloud(background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
+            self.wordcloud = wc.WordCloud(
+                background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
             ax = figure.add_subplot()
             ax.imshow(self.wordcloud, interpolation='bilinear')
             ax.set_axis_off()
-            print(self.wordcloud.__class__.__name__)
             return figure
-        
+
         except AttributeError:
             message = 'The chosen column does not consist of strings'
             messagebox.showerror(title='Column Choice', message=message)
             return None
-        
+
     def barplot(self, data, options, labels):
         figure = plt.Figure(figsize=(7, 5))
-        
+
         groupby_column = options['Column'].get()
-        number = options['# of categories'].get()
+        number = options['Nr. of categories'].get()
         number = int(number) if number.isdigit() else 10
-        
+
         # Data Manipulation
-        names = data.groupby(groupby_column).count().iloc[:,0].nlargest(number)
+        names = data.groupby(
+            groupby_column).count().iloc[:, 0].nlargest(number)
 
         # Data Visualisation
         ax = figure.add_subplot()
@@ -206,9 +194,9 @@ class NotebookTab(ttk.Frame):
         xlab = labels['X Label'].get()
         ylab = labels['Y Label'].get()
 
-        if not xlab:
+        if xlab:
             ax.set_xlabel(xlab)
-        if not ylab:
+        if ylab:
             ax.set_ylabel(ylab)
 
         return figure
@@ -216,28 +204,75 @@ class NotebookTab(ttk.Frame):
     def icicle(self, data, options, labels):
         pass
 
-    def save(self):
-        
-        file_types = [('JPEG files', '.jpg'), ('PNG files', '.png')]
+    # def save(self):
+
+        # file_types = [('JPEG files', '.jpg'), ('PNG files', '.png')]
+        # kwargs = {
+        #     'filetypes': file_types,
+        #     'title': 'Select File Name',
+        #     'defaultextension': '.jpg',
+        #     'initialdir': os.getcwd()
+        # }
+
+        # if (self.is_wordcloud or self.fig_transparent):
+        #     kwargs['filetypes'] = (file_types[1], )
+        #     kwargs['defaultextension'] = '.png'
+
+        # filename = filedialog.asksaveasfilename(**kwargs)
+        # if filename == '':
+        #     pass
+        # else:
+        #     if self.wordcloud:
+        #         self.wordcloud.to_file(filename)
+        #     else:
+        #         self.figure.savefig(filename)
+
+
+class CustomToolbar(NavigationToolbar2Tk):
+
+    def __init__(self, canvas, window, figure):
+        super().__init__(canvas=canvas, window=window)
+        self.figure = figure
+
+        save_btn = ('Save', 'Save the figure', 'filesave', self.save_figure)
+        toolbar_items = [t if t[0] !=
+                         'Save' else save_btn for t in self.toolitems]
+
+    def save_figure(self):
+        kind = self.figure.__class__.__name__
+        filetypes = [('Joint Photographic Experts Group', '.jpeg'),
+                     ('Joint Photographic Experts Group', '.jpg'),
+                     ('Portable Network Graphics', '.png'),
+                     ('Postscript', '.ps'),
+                     ('Encapsulated Postscript', '.eps'),
+                     ('Portable Document Format', '.pdf'),
+                     ('PGF code for LaTeX', '.pgf'),
+                     ('Raw RGBA bitmap', '.raw'),
+                     ('Raw RGBA bitmap', '.rgba'),
+                     ('Scalable Vector Graphics', '.svg'),
+                     ('Scalable Vector Graphics', '.svgz'),
+                     ('Tagged Image File Format', '.tif'),
+                     ('Tagged Image File Format', '.tiff')]
+
+        if kind == 'WordCloud':
+            del filetypes[0:2]
+
         kwargs = {
-            'filetypes': file_types,
+            'filetypes': filetypes,
             'title': 'Select File Name',
-            'defaultextension': '.jpg',
+            'defaultextension': filetypes[0][1],
             'initialdir': os.getcwd()
         }
 
-        if (self.is_wordcloud or self.fig_transparent):
-            kwargs['filetypes'] = (file_types[1], )
-            kwargs['defaultextension'] = '.png'
-
         filename = filedialog.asksaveasfilename(**kwargs)
-        if filename == '':
-            pass
-        else:
-            if self.wordcloud:
-                self.wordcloud.to_file(filename)
+        if filename:
+            if kind == 'WordCloud':
+                self.figure.to_file(filename)
             else:
                 self.figure.savefig(filename)
+        else:
+            pass
+        return True
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -284,7 +319,7 @@ class LabelFrameInput(ttk.LabelFrame):
                 frame, self.graph_type, options[0], *options, command=self.update)
             graph_options_lab.pack(side=tk.LEFT)
             graph_options_opt.pack(side=tk.RIGHT, fill=tk.X, expand=True)
-            frame.pack(side=tk.TOP, fill=tk.X, padx=5)
+            frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(5,2))
 
             for i in options:
                 if i in inputs:
@@ -299,7 +334,8 @@ class LabelFrameInput(ttk.LabelFrame):
 
             if primary == 'data_input':
                 frame = ttk.Frame(self)
-                data_input = ttk.Button(frame, text='Select data file', command=command)
+                data_input = ttk.Button(
+                    frame, text='Select data file', command=command)
                 data_input.pack(fill='both')
                 frame.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
 
@@ -392,7 +428,7 @@ class MainWindow(ttk.Frame):
 
         # Graph Options
         barplot_widgets = [('optionmenu', {'label': 'Column', 'options': ['Not available']}),
-                           ('entry', {'label': '# of categories'})]
+                           ('entry', {'label': 'Nr. of categories'})]
         wordcloud_widgets = [
             ('optionmenu', {'label': 'Column', 'options': ['Not available']}),
             ('optionmenu', {'label': 'BG color', 'options': ['White', 'Black', 'Transparent']})]
@@ -437,11 +473,11 @@ class MainWindow(ttk.Frame):
             with open(filename, 'r', encoding='utf-8') as data_file:
                 data = read_csv(data_file)
                 self.data = data
- 
+
             df_columns = data.columns
 
             barplot_widgets = [('optionmenu', {'label': 'Column', 'options': df_columns}),
-                               ('entry', {'label': '# of categories'})]
+                               ('entry', {'label': 'Nr. of categories'})]
 
             wordcloud_widgets = [
                 ('optionmenu', {'label': 'Column', 'options': df_columns}),
@@ -456,7 +492,8 @@ class MainWindow(ttk.Frame):
             self.graph_options.is_data = True
             self.plot_labels.is_data = True
 
-            messagebox.showinfo(title='Data entry', message='File has been read.')
+            messagebox.showinfo(title='Data entry',
+                                message='File has been read.')
 
             self.data_input.update()
             self.graph_options.update()
@@ -466,29 +503,31 @@ class MainWindow(ttk.Frame):
             title = 'Data entry'
             message = 'File was not selected properly. Please select file properly.'
             messagebox.showerror(title=title, message=message)
-            
+
         except:
             title = 'Unknown Error'
             message = 'If you are seeing this, I don\'t know how you got here'
             messagebox.showerror(title=title, message=message)
 
     def plot(self):
-        
+
         if self.data is None:
             title = 'No Data'
             message = 'There is no data provided to the application.'
             messagebox.showerror(title=title, message=message)
+
         else:
             kind = self.graph_options.graph_type.get()
             options = self.graph_options.values[kind]
             labels = self.plot_labels.values
 
-            frame = NotebookTab(self.notebook, notebook=self.notebook, data=self.data, kind=kind, options=options, labels=labels)
-            if frame.figure is None:
+            frame = NotebookTab(self.notebook, notebook=self.notebook,
+                                data=self.data, kind=kind, options=options, labels=labels)
+            if frame.is_empty:
                 pass
             else:
                 title = labels['Title'].get()
-                title = title if title != '' else f'graph {len(self.notebook.tabs()) + 1}'
+                title = title if title else f'graph {len(self.notebook.tabs()) + 1}'
                 title = f'{kind} - {title}'
                 self.notebook.add(frame, text=title)
                 self.notebook.select(frame)
@@ -498,10 +537,10 @@ class MainWindow(ttk.Frame):
         num = len(tabs)
 
         if num > 0:
-
             self.notebook.pack(fill='both', expand=True)
         else:
             self.notebook.pack_forget()
+
 
 def main():
     root = tk.Tk()
@@ -512,6 +551,7 @@ def main():
     window_1.pack(expand=True, fill='both')
 
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()
