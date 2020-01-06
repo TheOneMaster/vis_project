@@ -4,6 +4,7 @@ import numpy as np
 from pandas import read_csv
 import re
 from copy import deepcopy
+import os
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -103,8 +104,11 @@ class CustomNotebook(ttk.Notebook):
 
 class NotebookTab(ttk.Frame):
 
-    def __init__(self, master, data, kind, options, labels, *args, **kwargs):
+    def __init__(self, master, notebook, data, kind, options, labels, *args, **kwargs):
         super().__init__(master=master, **kwargs)
+
+        self.fig_transparent = False
+        self.is_wordcloud = False
 
         plot_types = {
             'Barplot': self.barplot,
@@ -119,9 +123,9 @@ class NotebookTab(ttk.Frame):
 
         graph_type = f'Graph type: {kind}'
         info_label = ttk.Label(info, text=graph_type)
-        info_label.pack(side=tk.LEFT)
+        info_label.pack(side=tk.LEFT, padx=5)
 
-        data = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
+        image = """iVBORw0KGgoAAAANSUhEUgAAABAAAAARCAYAAADUryzEAAAAAXNSR0IArs4c6QAA
                AARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAADWSU
                RBVDhPzdK9CwFhAMfxQ+oUSQbKbFEWGb2Uv8ufQDb/hdEqk8VoMiiD
                6WyuKOXl+zt3OXXcy+Rbn+6ep57Hc+6MH43wcE01EVTavQaVca/Kf/
@@ -130,7 +134,7 @@ class NotebookTab(ttk.Frame):
                PHTQMLZ3Q1iFgPWmPpl/W6cvj6uQakdVpj+r8DPU7stOiEAoZYI0oNTGD7N0iSrUdYQu86QcbiCayqJZN0tba6AAAAAElFTkSuQmCC)
                """
 
-        save_img = tk.PhotoImage(data=data)
+        save_img = tk.PhotoImage(data=image)
         save_btn = ttk.Button(info, image=save_img, command=self.save)
         save_btn.image = save_img
         save_btn.pack(side=tk.RIGHT)
@@ -153,6 +157,7 @@ class NotebookTab(ttk.Frame):
             canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
         
     def wordcloud(self, data, options, labels):
+        self.is_wordcloud = True
         figure = plt.Figure(figsize=(7, 5))
         groupby_column = options['Column'].get()
 
@@ -161,7 +166,14 @@ class NotebookTab(ttk.Frame):
             names = data.groupby(groupby_column).count().iloc[:, 0]
             names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
             names = names.to_dict()
-            self.wordcloud = wc.WordCloud(width=2100, height=1500).generate_from_frequencies(names)
+
+            bg = options['BG color'].get()
+            bg = 'white' if bg == '' else bg.lower()
+            if bg == 'transparent':
+                bg = None
+                self.fig_transparent = True
+
+            self.wordcloud = wc.WordCloud(background_color=bg, width=2100, height=1500, mode='RGBA').generate_from_frequencies(names)
             ax = figure.add_subplot()
             ax.imshow(self.wordcloud, interpolation='bilinear')
             ax.set_axis_off()
@@ -179,7 +191,28 @@ class NotebookTab(ttk.Frame):
         pass
 
     def save(self):
-        pass
+        
+        file_types = [('JPEG files', '.jpg'), ('PNG files', '.png')]
+        kwargs = {
+            'filetypes': file_types,
+            'title': 'Select File Name',
+            'defaultextension': '.jpg',
+            'initialdir': os.getcwd()
+        }
+
+        if (self.is_wordcloud or self.fig_transparent):
+            kwargs['filetypes'] = (file_types[1], )
+            kwargs['defaultextension'] = '.png'
+
+        filename = filedialog.asksaveasfilename(**kwargs)
+        if filename == '':
+            pass
+        else:
+            if self.wordcloud:
+                self.wordcloud.to_file(filename)
+            else:
+                self.figure.savefig(filename)
+
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -336,7 +369,8 @@ class MainWindow(ttk.Frame):
         barplot_widgets = [('optionmenu', {'label': 'Column', 'options': ['Not available']}),
                            ('entry', {'label': '# of categories'})]
         wordcloud_widgets = [
-            ('optionmenu', {'label': 'Column', 'options': ['Not available']})]
+            ('optionmenu', {'label': 'Column', 'options': ['Not available']}),
+            ('optionmenu', {'label': 'BG color', 'options': ['White', 'Black', 'Transparent']})]
         graph_options = {
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets
@@ -385,7 +419,8 @@ class MainWindow(ttk.Frame):
                                ('entry', {'label': '# of categories'})]
 
             wordcloud_widgets = [
-                ('optionmenu', {'label': 'Column', 'options': df_columns})]
+                ('optionmenu', {'label': 'Column', 'options': df_columns}),
+                ('optionmenu', {'label': 'BG color', 'options': ['White', 'Black', 'Transparent']})]
 
             self.graph_options.inputs = {
                 'Barplot': barplot_widgets,
@@ -423,12 +458,15 @@ class MainWindow(ttk.Frame):
             options = self.graph_options.values[kind]
             labels = self.plot_labels.values
 
-            frame = NotebookTab(self.notebook, data=self.data, kind=kind, options=options, labels=labels)
-            title = labels['Title'].get()
-            title = title if title != '' else f'graph {len(self.notebook.tabs()) + 1}'
-            title = f'{kind} - {title}'
-            self.notebook.add(frame, text=title)
-            self.notebook.select(frame)
+            frame = NotebookTab(self.notebook, notebook=self.notebook, data=self.data, kind=kind, options=options, labels=labels)
+            if frame.figure is None:
+                pass
+            else:
+                title = labels['Title'].get()
+                title = title if title != '' else f'graph {len(self.notebook.tabs()) + 1}'
+                title = f'{kind} - {title}'
+                self.notebook.add(frame, text=title)
+                self.notebook.select(frame)
 
     def check_tabs(self, event):
         tabs = self.notebook.tabs()
