@@ -27,7 +27,7 @@ class MainWindow(ttk.Frame):
 
         input_options = [{'kind': 'entry', 'label': 'test', 'id': 'test'}]
         self.data_input = LabelFrameInput(
-            self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing')
+            self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter, self.clean_filter])
 
         # Graph Options
         barplot_widgets = [
@@ -107,11 +107,13 @@ class MainWindow(ttk.Frame):
 
             with open(filename, 'r', encoding='utf-8') as data_file:
                 data = read_csv(data_file, engine='c')
-                self.data = data
+                self.base = data
+            
+            self.data = self.base.copy(deep=True)
 
             df_columns = data.columns
-            table = DataTable(self.bottom_frame, data.head().copy(), None)
-            table.pack(fill='both', expand=True)
+            self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
+            self.table.pack(fill='both', expand=True)
 
             for widget in self.graph_options.inputs.values():
                 for dictionary in widget:
@@ -152,7 +154,7 @@ class MainWindow(ttk.Frame):
             labels = self.plot_labels.values
 
             frame = NotebookTab(self.notebook, notebook=self.notebook,
-                                data=self.data.iloc[0:10000], kind=kind, options=options, labels=labels)
+                                data=self.data, kind=kind, options=options, labels=labels)
             if frame.is_empty:
                 pass
             else:
@@ -163,6 +165,12 @@ class MainWindow(ttk.Frame):
                 self.notebook.add(frame, text=title)
                 self.notebook.select(frame)
 
+    def filter(self):
+        pass
+
+    def clean_filter(self):
+        self.data = self.base.copy(deep=True)
+        self.table.update(self.data.head(10).copy())
 
 def main():
     root = tk.Tk()

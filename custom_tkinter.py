@@ -299,6 +299,7 @@ class LabelFrameInput(ttk.LabelFrame):
     def __init__(self, master, inputs, primary=None, **kwargs):
 
         command = kwargs.pop('command') if 'command' in kwargs else None
+        alt_command = kwargs.pop('alt_command') if 'alt_command' in kwargs else None
 
         super().__init__(master, **kwargs)
         self.is_data = False
@@ -331,11 +332,21 @@ class LabelFrameInput(ttk.LabelFrame):
         else:
 
             if primary == 'data_input':
-                frame = ttk.Frame(self)
+                top_frame = ttk.Frame(self)
                 data_input = ttk.Button(
-                    frame, text='Select data file', command=command)
+                    top_frame, text='Select data file', command=command)
                 data_input.pack(fill='both')
-                frame.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
+
+                bottom_frame = ttk.Frame(self)
+                filter_apply = ttk.Button(bottom_frame, text='Filter', command=alt_command[0])
+                filter_remove = ttk.Button(bottom_frame, text='Clear', command=alt_command[1])
+
+                filter_apply.pack(side=tk.LEFT, expand=True, padx=(5,2.5))
+                filter_remove.pack(side=tk.RIGHT, expand=True, padx=(2.5,5))
+
+                top_frame.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
+                bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
 
             self.frames, self.values = self.create_frame(inputs)
             self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
@@ -415,40 +426,37 @@ class DataTable(ttk.Frame):
 
         columns = dataframe.columns
         dataframe = dataframe.astype(str)
-        table = ttk.Treeview(self, columns=tuple(columns[1:]), height=5)
+        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=5)
         font_obj = font.Font()
         width = font_obj.measure(columns[0])
-        table.heading('#0', text=columns[0])
-        table.column('#0', width=width)
+        self.table.heading('#0', text=columns[0])
+        self.table.column('#0', width=width)
 
-        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=table.xview)
-        table.config(xscrollcommand=scroll.set)
+        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
+        self.table.config(xscrollcommand=scroll.set)
 
-        for index, row in dataframe.iterrows():
-            row = tuple(row)
-            table.insert('', 'end', values=row[1:], text=row[0])
+        self.create_entries(dataframe)
 
         for i in columns[1:]:
-            table.heading(i, text=i)
+            self.table.heading(i, text=i)
             longest = max(dataframe[i].values, key=len).strip()
             longest_val = font_obj.measure(text=longest)
             index_val = font_obj.measure(text=i)
             width = max((longest_val, index_val))
-            table.column(i, width=width)
-            print(table.column(i))
-
-        table.update()
+            self.table.column(i, width=width)
 
         scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        table.pack(side=tk.BOTTOM, fill='both')
-        # scroll.grid(row=1, column=0, sticky='nsew')
-        # table.grid(row=0, column=0, sticky='nsew')
+        self.table.pack(side=tk.BOTTOM, fill='both')
 
-        # self.rowconfigure(0, weight=1)
-        # self.columnconfigure(0, weight=1)
+    def create_entries(self, dataframe):
+        for index, row in dataframe.iterrows():
+            row = tuple(row)
+            self.table.insert('', 'end', values=row[1:], text=row[0])
 
-    def create_entries(self):
-        pass
+    def update(self, new_data):
+        self.table.delete(*self.table.get_children())
+        self.create_entries(new_data)
+        self.table.update()
 
 
 class IciclePlot(tk.Canvas):
