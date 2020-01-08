@@ -100,6 +100,60 @@ class CustomNotebook(ttk.Notebook):
         ])
 
 
+class CustomToolbar(NavigationToolbar2Tk):
+
+    """
+    Custom  matplotlib Navigation Toolbar for Tkinter. Changes the save functionality.
+
+    TODO: Change the x, y coordinate output to rounded 2d vectors [x,y] instead of x=x, y=y
+
+    """
+
+    def __init__(self, canvas, window, figure):
+        super().__init__(canvas=canvas, window=window)
+        self.figure = figure
+
+        save_btn = ('Save', 'Save the figure', 'filesave', self.save_figure)
+        toolbar_items = [t if t[0] !=
+                         'Save' else save_btn for t in self.toolitems]
+
+    def save_figure(self):
+        kind = self.figure.__class__.__name__
+        filetypes = [('Joint Photographic Experts Group', '.jpeg'),
+                     ('Joint Photographic Experts Group', '.jpg'),
+                     ('Portable Network Graphics', '.png'),
+                     ('Postscript', '.ps'),
+                     ('Encapsulated Postscript', '.eps'),
+                     ('Portable Document Format', '.pdf'),
+                     ('PGF code for LaTeX', '.pgf'),
+                     ('Raw RGBA bitmap', '.raw'),
+                     ('Raw RGBA bitmap', '.rgba'),
+                     ('Scalable Vector Graphics', '.svg'),
+                     ('Scalable Vector Graphics', '.svgz'),
+                     ('Tagged Image File Format', '.tif'),
+                     ('Tagged Image File Format', '.tiff')]
+
+        if kind == 'WordCloud':
+            del filetypes[0:2]
+
+        kwargs = {
+            'filetypes': filetypes,
+            'title': 'Select File Name',
+            'defaultextension': filetypes[0][1],
+            'initialdir': os.getcwd()
+        }
+
+        filename = filedialog.asksaveasfilename(**kwargs)
+        if filename:
+            if kind == 'WordCloud':
+                self.figure.to_file(filename)
+            else:
+                self.figure.savefig(filename)
+        else:
+            pass
+        return True
+
+
 class NotebookTab(ttk.Frame):
     "A ttk Frame with the frame layout and figure for the notebook"
 
@@ -170,6 +224,11 @@ class NotebookTab(ttk.Frame):
         try:
             names = data.groupby(groupby_column).count().iloc[:, 0]
             names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
+            
+            filt = options['filter'].get().strip()
+            if filt:
+                names = names[~(names.index.str.match(filt))]
+            
             names = names.to_dict()
 
             bg = options['bg'].get()
@@ -216,60 +275,6 @@ class NotebookTab(ttk.Frame):
 
     def icicle(self, data, options, labels):
         return IciclePlot(self, data, options)
-
-
-class CustomToolbar(NavigationToolbar2Tk):
-
-    """
-    Custom  matplotlib Navigation Toolbar for Tkinter. Changes the save functionality.
-
-    TODO: Change the x, y coordinate output to rounded 2d vectors [x,y] instead of x=x, y=y
-
-    """
-
-    def __init__(self, canvas, window, figure):
-        super().__init__(canvas=canvas, window=window)
-        self.figure = figure
-
-        save_btn = ('Save', 'Save the figure', 'filesave', self.save_figure)
-        toolbar_items = [t if t[0] !=
-                         'Save' else save_btn for t in self.toolitems]
-
-    def save_figure(self):
-        kind = self.figure.__class__.__name__
-        filetypes = [('Joint Photographic Experts Group', '.jpeg'),
-                     ('Joint Photographic Experts Group', '.jpg'),
-                     ('Portable Network Graphics', '.png'),
-                     ('Postscript', '.ps'),
-                     ('Encapsulated Postscript', '.eps'),
-                     ('Portable Document Format', '.pdf'),
-                     ('PGF code for LaTeX', '.pgf'),
-                     ('Raw RGBA bitmap', '.raw'),
-                     ('Raw RGBA bitmap', '.rgba'),
-                     ('Scalable Vector Graphics', '.svg'),
-                     ('Scalable Vector Graphics', '.svgz'),
-                     ('Tagged Image File Format', '.tif'),
-                     ('Tagged Image File Format', '.tiff')]
-
-        if kind == 'WordCloud':
-            del filetypes[0:2]
-
-        kwargs = {
-            'filetypes': filetypes,
-            'title': 'Select File Name',
-            'defaultextension': filetypes[0][1],
-            'initialdir': os.getcwd()
-        }
-
-        filename = filedialog.asksaveasfilename(**kwargs)
-        if filename:
-            if kind == 'WordCloud':
-                self.figure.to_file(filename)
-            else:
-                self.figure.savefig(filename)
-        else:
-            pass
-        return True
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -333,8 +338,11 @@ class LabelFrameInput(ttk.LabelFrame):
 
             if primary == 'data_input':
                 top_frame = ttk.Frame(self)
+                str_var = tk.StringVar()
+                filename = ttk.Label(top_frame, textvariable=str_var)
                 data_input = ttk.Button(
-                    top_frame, text='Select data file', command=command)
+                    top_frame, text='Select data file', command=lambda: str_var.set(command()))
+                filename.pack(side=tk.BOTTOM, expand=True)
                 data_input.pack(fill='both')
 
                 bottom_frame = ttk.Frame(self)
@@ -420,22 +428,33 @@ class LabelFrameInput(ttk.LabelFrame):
 
 
 class DataTable(ttk.Frame):
-
+    "Creates table representation of dataframe"
     def __init__(self, master, dataframe, options, **kw):
         super().__init__(master=master, **kw)
-
-        columns = dataframe.columns
         dataframe = dataframe.astype(str)
-        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=5)
-        font_obj = font.Font()
-        width = font_obj.measure(columns[0])
-        self.table.heading('#0', text=columns[0])
-        self.table.column('#0', width=width)
+        columns = dataframe.columns
+        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=8)
 
         scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
         self.table.config(xscrollcommand=scroll.set)
 
         self.create_entries(dataframe)
+
+        scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.table.pack(side=tk.BOTTOM, fill='both')
+
+    def create_entries(self, dataframe):
+        
+        columns = dataframe.columns
+        font_obj = font.Font()
+
+        width = font_obj.measure(columns[0])
+        self.table.heading('#0', text=columns[0])
+        self.table.column('#0', width=width)
+
+        for index, row in dataframe.iterrows():
+            row = tuple(row)
+            self.table.insert('', 'end', values=row[1:], text=row[0])
 
         for i in columns[1:]:
             self.table.heading(i, text=i)
@@ -445,18 +464,9 @@ class DataTable(ttk.Frame):
             width = max((longest_val, index_val))
             self.table.column(i, width=width)
 
-        scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        self.table.pack(side=tk.BOTTOM, fill='both')
-
-    def create_entries(self, dataframe):
-        for index, row in dataframe.iterrows():
-            row = tuple(row)
-            self.table.insert('', 'end', values=row[1:], text=row[0])
-
     def update(self, new_data):
         self.table.delete(*self.table.get_children())
         self.create_entries(new_data)
-        self.table.update()
 
 
 class IciclePlot(tk.Canvas):

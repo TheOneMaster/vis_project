@@ -5,6 +5,7 @@ from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTab
 
 # Other libraries
 from pandas import read_csv
+import os
 
 
 class MainWindow(ttk.Frame):
@@ -37,7 +38,8 @@ class MainWindow(ttk.Frame):
         
         wordcloud_widgets = [
             {'kind': 'optionmenu', 'label': 'Column', 'options': ['Not available'], 'id': 'column'},
-            {'kind': 'optionmenu', 'label': 'BG color', 'options': ['White', 'Black', 'Transparent'], 'id': 'bg'}
+            {'kind': 'optionmenu', 'label': 'BG color', 'options': ['White', 'Black', 'Transparent'], 'id': 'bg'},
+            {'kind': 'entry', 'label': 'Filter', 'id': 'filter'}
             ]
 
         icicle_widgets = [
@@ -112,8 +114,13 @@ class MainWindow(ttk.Frame):
             self.data = self.base.copy(deep=True)
 
             df_columns = data.columns
-            self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
-            self.table.pack(fill='both', expand=True)
+            try:
+                self.table.destroy()
+                self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
+                self.table.pack(fill='both', expand=True)
+            except:
+                self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
+                self.table.pack(fill='both', expand=True)
 
             for widget in self.graph_options.inputs.values():
                 for dictionary in widget:
@@ -130,6 +137,7 @@ class MainWindow(ttk.Frame):
             self.data_input.update()
             self.graph_options.update()
             self.plot_labels.update()
+            return os.path.basename(filename)
 
         except FileNotFoundError:
             title = 'Data entry'
