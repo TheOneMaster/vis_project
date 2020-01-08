@@ -1,10 +1,10 @@
+# Tkinter libraries
 import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
-from pandas import read_csv
-from copy import deepcopy
-import os
+from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTable, IciclePlot
 
-from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab
+# Other libraries
+from pandas import read_csv
 
 
 class MainWindow(ttk.Frame):
@@ -17,7 +17,7 @@ class MainWindow(ttk.Frame):
 
         self.left_frame = ttk.Frame(self)
         self.mid_frame = ttk.Frame(self)
-        self.right_frame = ttk.Frame(self)
+        self.bottom_frame = ttk.Frame(self, height=150)
         self.data = None
 
         """
@@ -25,26 +25,49 @@ class MainWindow(ttk.Frame):
         """
         # Data entry
 
-        input_options = [('entry', {'label': 'test'})]
+        input_options = [{'kind': 'entry', 'label': 'test', 'id': 'test'}]
         self.data_input = LabelFrameInput(
             self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing')
 
         # Graph Options
-        barplot_widgets = [('optionmenu', {'label': 'Column', 'options': ['Not available']}),
-                           ('entry', {'label': 'Nr. of categories'})]
+        barplot_widgets = [
+            {'kind': 'optionmenu', 'label': 'Column', 'options': ['Not available'], 'id': 'column'},
+            {'kind': 'entry', 'label': 'Nr. of categories', 'id': 'categories'}
+            ]
+        
         wordcloud_widgets = [
-            ('optionmenu', {'label': 'Column', 'options': ['Not available']}),
-            ('optionmenu', {'label': 'BG color', 'options': ['White', 'Black', 'Transparent']})]
+            {'kind': 'optionmenu', 'label': 'Column', 'options': ['Not available'], 'id': 'column'},
+            {'kind': 'optionmenu', 'label': 'BG color', 'options': ['White', 'Black', 'Transparent'], 'id': 'bg'}
+            ]
+
+        icicle_widgets = [
+                {'kind': 'optionmenu', 'label' : 'Column', 'options' : ['Not Available'], 'id': 'column'},
+                {'kind': 'entry','label' : 'Cutoff', 'id': 'cutoff'},
+                {'kind': 'entry', 'label' : 'Width', 'id': 'width'},
+                {'kind': 'entry', 'label' : 'Height', 'id': 'height'},
+                {'kind': 'entry', 'label' : 'Min Char Width', 'id': 'min_char_width'},
+                {'kind': 'entry', 'label' : 'Colours', 'id': 'colours'},
+                {'kind': 'entry', 'label' : 'Values', 'id': 'values'},
+                {'kind': 'optionmenu', 'label' : 'Bool column', 'options' : ['Not Available'], 'id': 'bool_column'}
+            ]
+        
         graph_options = {
             'Barplot': barplot_widgets,
-            'Wordcloud': wordcloud_widgets
+            'Wordcloud': wordcloud_widgets,
+            'Icicle': icicle_widgets
         }
+
         self.graph_options = LabelFrameInput(
             self.left_frame, graph_options, text='Graph Options', primary='graph_options')
 
         # Plot labels
-        plot_labels = [('entry', {'label': 'Title'}), ('entry', {'label': 'Subtitle'}), ('entry', {
-            'label': 'Y Label'}), ('entry', {'label': 'X Label'}), ('checkbutton', {'label': 'xkcd'})]
+        plot_labels = [
+            {'kind': 'entry','label': 'Title', 'id':'title'}, 
+            {'kind':'entry', 'label': 'Subtitle', 'id':'subtitle'}, 
+            {'kind': 'entry','label': 'Y Label', 'id': 'ylab'}, 
+            {'kind':'entry','label': 'X Label', 'id': 'xlab'}, 
+            {'kind':'checkbutton','label': 'xkcd', 'id': 'xkcd'}
+        ]
         self.plot_labels = LabelFrameInput(
             self.left_frame, plot_labels, text='Graph Labels')
 
@@ -55,18 +78,27 @@ class MainWindow(ttk.Frame):
         self.plot_labels.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
         self.graph_options.pack(side=tk.TOP, fill='both',
                                 expand=True, padx=5, pady=5)
-        self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
+        
 
         """
         Middle frame widgets
         """
         # Notebook
         self.notebook = CustomNotebook(self.mid_frame)
-        self.notebook.bind("<<NotebookTabClosed>>", self.check_tabs)
         self.notebook.pack(fill='both', expand=True)
+        # self.notebook.pack(fill='both', expand=True)
 
+        
+
+        """
+        Bottom frame widgets
+        """
+
+        # Pack the frames
+        self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
+        self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
-
+        
     def get_data(self):
 
         try:
@@ -74,22 +106,17 @@ class MainWindow(ttk.Frame):
             filename = filedialog.askopenfilename(filetypes=file_types)
 
             with open(filename, 'r', encoding='utf-8') as data_file:
-                data = read_csv(data_file)
+                data = read_csv(data_file, engine='c')
                 self.data = data
 
             df_columns = data.columns
+            table = DataTable(self.bottom_frame, data.head().copy(), None)
+            table.pack(fill='both', expand=True)
 
-            barplot_widgets = [('optionmenu', {'label': 'Column', 'options': df_columns}),
-                               ('entry', {'label': 'Nr. of categories'})]
-
-            wordcloud_widgets = [
-                ('optionmenu', {'label': 'Column', 'options': df_columns}),
-                ('optionmenu', {'label': 'BG color', 'options': ['White', 'Black', 'Transparent']})]
-
-            self.graph_options.inputs = {
-                'Barplot': barplot_widgets,
-                'Wordcloud': wordcloud_widgets
-            }
+            for widget in self.graph_options.inputs.values():
+                for dictionary in widget:
+                    if dictionary['id'] in {'column', 'bool_column'}:
+                        dictionary['options'] = df_columns
 
             self.data_input.is_data = True
             self.graph_options.is_data = True
@@ -107,10 +134,10 @@ class MainWindow(ttk.Frame):
             message = 'File was not selected properly. Please select file properly.'
             messagebox.showerror(title=title, message=message)
 
-        except:
-            title = 'Unknown Error'
-            message = 'If you are seeing this, I don\'t know how you got here'
-            messagebox.showerror(title=title, message=message)
+        # except:
+        #     title = 'Unknown Error'
+        #     message = 'If you are seeing this, I don\'t know how you got here'
+        #     messagebox.showerror(title=title, message=message)
 
     def plot(self):
 
@@ -125,30 +152,22 @@ class MainWindow(ttk.Frame):
             labels = self.plot_labels.values
 
             frame = NotebookTab(self.notebook, notebook=self.notebook,
-                                data=self.data, kind=kind, options=options, labels=labels)
+                                data=self.data.iloc[0:10000], kind=kind, options=options, labels=labels)
             if frame.is_empty:
                 pass
             else:
-                title = labels['Title'].get()
+                title = labels['title'].get()
+                title = title.strip()
                 title = title if title else f'graph {len(self.notebook.tabs()) + 1}'
                 title = f'{kind} - {title}'
                 self.notebook.add(frame, text=title)
                 self.notebook.select(frame)
 
-    def check_tabs(self, event):
-        tabs = self.notebook.tabs()
-        num = len(tabs)
-
-        if num > 0:
-            self.notebook.pack(fill='both', expand=True)
-        else:
-            self.notebook.pack_forget()
-
 
 def main():
     root = tk.Tk()
     root.title('GUI Implementation')
-    root.geometry('1200x500')
+    root.state('zoomed')
 
     window_1 = MainWindow(root)
     window_1.pack(expand=True, fill='both')
