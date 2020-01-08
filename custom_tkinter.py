@@ -2,7 +2,11 @@ import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from copy import deepcopy
+from copy import deepcopy, copy
+import os
+import wordcloud as wc
+import pandas as pd
+from ast import literal_eval
 
 class CustomNotebook(ttk.Notebook):
     """A ttk Notebook with close buttons on each tab"""
@@ -97,6 +101,7 @@ class CustomNotebook(ttk.Notebook):
 
 
 class NotebookTab(ttk.Frame):
+    "A ttk Frame with the frame layout and figure for the notebook"
 
     def __init__(self, master, notebook, data, kind, options, labels, *args, **kwargs):
         super().__init__(master=master, **kwargs)
@@ -110,13 +115,27 @@ class NotebookTab(ttk.Frame):
             'Icicle': self.icicle
         }
 
-        figure = plot_types[kind](data=data, options=options, labels=labels)
+        if labels['xkcd'].get():
+            with plt.xkcd():
+                figure = plot_types[kind](
+                    data=data, options=options, labels=labels)
+        else:
+            figure = plot_types[kind](
+                data=data, options=options, labels=labels)
 
         if figure is None:
             pass
+        elif isinstance(figure, tk.Canvas):
+            self.is_empty = False
+            title = labels['title'].get().strip()
+            title = title if title else None
+
+            if title is not None:
+                figure.canvas.create_text(0, 0, text=title)
+            canvas = figure.canvas
         else:
             self.is_empty = False
-            title = labels['Title'].get()
+            title = labels['title'].get()
             title = title if title != '' else None
 
             if title is not None:
@@ -132,10 +151,10 @@ class NotebookTab(ttk.Frame):
                 'window': self,
                 'figure': figure
             }
-            
+
             if self.is_wordcloud:
                 toolbar_kwargs['figure'] = self.wordcloud
-            
+
             toolbar = CustomToolbar(**toolbar_kwargs)
             toolbar.update()
 
@@ -145,7 +164,7 @@ class NotebookTab(ttk.Frame):
     def wordcloud(self, data, options, labels):
         self.is_wordcloud = True
         figure = plt.Figure(figsize=(7, 5))
-        groupby_column = options['Column'].get()
+        groupby_column = options['column'].get()
 
         # Data manipulation
         try:
@@ -153,7 +172,7 @@ class NotebookTab(ttk.Frame):
             names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
             names = names.to_dict()
 
-            bg = options['BG color'].get()
+            bg = options['bg'].get()
             bg = 'white' if bg == '' else bg.lower()
             if bg == 'transparent':
                 bg = None
@@ -173,8 +192,8 @@ class NotebookTab(ttk.Frame):
     def barplot(self, data, options, labels):
         figure = plt.Figure(figsize=(7, 5))
 
-        groupby_column = options['Column'].get()
-        number = options['Nr. of categories'].get()
+        groupby_column = options['column'].get()
+        number = options['categories'].get().strip()
         number = int(number) if number.isdigit() else 10
 
         # Data Manipulation
@@ -185,8 +204,8 @@ class NotebookTab(ttk.Frame):
         ax = figure.add_subplot()
         names.plot(kind='bar', ax=ax)
 
-        xlab = labels['X Label'].get()
-        ylab = labels['Y Label'].get()
+        xlab = labels['xlab'].get()
+        ylab = labels['ylab'].get()
 
         if xlab:
             ax.set_xlabel(xlab)
@@ -196,33 +215,17 @@ class NotebookTab(ttk.Frame):
         return figure
 
     def icicle(self, data, options, labels):
-        pass
-
-    # def save(self):
-
-        # file_types = [('JPEG files', '.jpg'), ('PNG files', '.png')]
-        # kwargs = {
-        #     'filetypes': file_types,
-        #     'title': 'Select File Name',
-        #     'defaultextension': '.jpg',
-        #     'initialdir': os.getcwd()
-        # }
-
-        # if (self.is_wordcloud or self.fig_transparent):
-        #     kwargs['filetypes'] = (file_types[1], )
-        #     kwargs['defaultextension'] = '.png'
-
-        # filename = filedialog.asksaveasfilename(**kwargs)
-        # if filename == '':
-        #     pass
-        # else:
-        #     if self.wordcloud:
-        #         self.wordcloud.to_file(filename)
-        #     else:
-        #         self.figure.savefig(filename)
+        return IciclePlot(self, data, options)
 
 
 class CustomToolbar(NavigationToolbar2Tk):
+
+    """
+    Custom  matplotlib Navigation Toolbar for Tkinter. Changes the save functionality.
+
+    TODO: Change the x, y coordinate output to rounded 2d vectors [x,y] instead of x=x, y=y
+
+    """
 
     def __init__(self, canvas, window, figure):
         super().__init__(canvas=canvas, window=window)
@@ -272,11 +275,11 @@ class CustomToolbar(NavigationToolbar2Tk):
 class LabelFrameInput(ttk.LabelFrame):
 
     """
-    Creates a ttk labelframe with the widgets passed through the inputs argument. 
+    Creates a ttk labelframe with the widgets passed through the inputs argument.
     The primary argument is used to distinguish those instances that have a widget centered at the top (graph_options and data_entry)
 
     inputs argument format:
-    (widget_name, {label:name, kwarg:value})
+    {kind: type, id: code reference ,label:name,  kwarg:value})
 
     Explanation:
 
@@ -308,13 +311,13 @@ class LabelFrameInput(ttk.LabelFrame):
 
             frame = ttk.Frame(self)
             graph_options_lab = ttk.Label(frame, text='Graph Type', width=15)
-            options = ['Barplot', 'Wordcloud', 'Line', 'Node', 'Icicle']
+            options = ['Barplot', 'Wordcloud', 'Line', 'Icicle']
             self.graph_type = tk.StringVar()
             graph_options_opt = ttk.OptionMenu(
                 frame, self.graph_type, options[0], *options, command=self.update)
             graph_options_lab.pack(side=tk.LEFT)
             graph_options_opt.pack(side=tk.RIGHT, fill=tk.X, expand=True)
-            frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(5,2))
+            frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=(5, 2))
 
             for i in options:
                 if i in inputs:
@@ -343,7 +346,9 @@ class LabelFrameInput(ttk.LabelFrame):
         inputs = deepcopy(entries)
         entry_widget = {}
 
-        for widget, kwargs in inputs:
+        for kwargs in inputs:
+            widget = kwargs.pop('kind')
+            identity = kwargs.pop('id')
             frame = ttk.Frame(frame_master)
             label_str = kwargs.pop('label')
             label = ttk.Label(frame, text=label_str, width=15, anchor='sw')
@@ -353,17 +358,17 @@ class LabelFrameInput(ttk.LabelFrame):
                 options = kwargs.pop('options')
                 widget = self.key[widget](
                     frame, stringvar, options[0], *options, **kwargs)
-                entry_widget[label_str] = stringvar
+                entry_widget[identity] = stringvar
 
             elif widget == 'combo':
                 pass
             elif widget == 'checkbutton':
                 intvar = tk.IntVar()
                 widget = self.key[widget](frame, variable=intvar)
-                entry_widget[label_str] = intvar
+                entry_widget[identity] = intvar
             else:
                 widget = self.key[widget](frame, **kwargs)
-                entry_widget[label_str] = widget
+                entry_widget[identity] = widget
 
             if not self.is_data:
                 widget.config(state='disabled')
@@ -402,3 +407,407 @@ class LabelFrameInput(ttk.LabelFrame):
                 self.current = self.frames[name]
                 self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
+
+class DataTable(ttk.Frame):
+
+    def __init__(self, master, dataframe, options, **kw):
+        super().__init__(master=master, **kw)
+
+        columns = dataframe.columns
+        dataframe = dataframe.astype(str)
+        table = ttk.Treeview(self, columns=tuple(columns[1:]), height=5)
+        font_obj = font.Font()
+        width = font_obj.measure(columns[0])
+        table.heading('#0', text=columns[0])
+        table.column('#0', width=width)
+
+        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=table.xview)
+        table.config(xscrollcommand=scroll.set)
+
+        for index, row in dataframe.iterrows():
+            row = tuple(row)
+            table.insert('', 'end', values=row[1:], text=row[0])
+
+        for i in columns[1:]:
+            table.heading(i, text=i)
+            longest = max(dataframe[i].values, key=len).strip()
+            longest_val = font_obj.measure(text=longest)
+            index_val = font_obj.measure(text=i)
+            width = max((longest_val, index_val))
+            table.column(i, width=width)
+            print(table.column(i))
+
+        table.update()
+
+        scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        table.pack(side=tk.BOTTOM, fill='both')
+        # scroll.grid(row=1, column=0, sticky='nsew')
+        # table.grid(row=0, column=0, sticky='nsew')
+
+        # self.rowconfigure(0, weight=1)
+        # self.columnconfigure(0, weight=1)
+
+    def create_entries(self):
+        pass
+
+
+class IciclePlot(tk.Canvas):
+
+    def __init__(self, master, data, inputs):
+        super().__init__(master=master)
+
+        # retype strings to integers and tuples:
+        options = inputs.copy()
+        Column = options['column'].get()
+        try:
+            cutoff = options.pop('cutoff').get().strip()
+            Height = options['height'].get().strip()
+            Width = options['width'].get().strip()
+            min_char_width = options['min_char_width'].get()
+            cutoff = int(cutoff) if cutoff.isdigit() else 1
+            Height = int(Height) if Height.isdigit() else 700
+            Width = int(Width) if Width.isdigit() else 700
+            min_char_width = int(
+                min_char_width) if min_char_width.isdigit() else 1
+        except ValueError:
+            title = 'Incorrect Input'
+            message = 'cutoff, Height, Width or min_char_width was not coercable to int'
+            messagebox.showerror(title=title, message=message)
+        # decode strings representing tuples:
+        bool_clrs_str = options['colours'].get().strip()
+        bool_clrs = literal_eval(f'[{bool_clrs_str}]')
+        options['bool_clrs'] = bool_clrs
+        
+        # decode strings representing names
+        bool_val_str = options['values'].get().strip()
+        bool_vals = bool_val_str.split(',')
+        
+        options['bool_vals'] = bool_vals
+        options['bool_clmn'] = options['bool_column'].get()
+
+        x = 0
+        y = 0
+        """
+        Does all the work for the name icicle plot except the recursion:
+        Sorts the names, determines how high 1 name is and how wide 1 character is,
+        creates a canvas
+
+        Arguments:
+        self: parent Window1 object
+        data: a list of names or pandas DataFrame.
+            If a DataFrame is given, name_clmn is used to decide what column to use for names.
+        width: width of desired canvas
+        height: height of desired canvas
+        x,y: coordinates of starting position. Useful for recursion and to make labels on the side
+        cutoff: determines the minimum number of names required to get a rect to actually display, minimum 1
+        min_char_width: determines a minimum width per character on the final graph, for if some names are extremely long
+        Column selects the column to use for plotting if the data is a DataFrame, can be int or string
+
+        Output:
+        memorydict: a dictionary containing the location and selectedness of all rectangles
+            example entry: 'Menno' : [(200,250,300,350), False, (255,0,255), 'no']
+            representing the square representing the names starting with Menno,
+            which spans from (200,250) to (300,350), which is not selected
+            All rectangles start out not selected
+            3rd entry is the colour of the rectangle
+            4th entry is the text in this rectangle
+        """
+
+        # get the name column from the dataframe if needed, sort stuff
+        if type(data) == pd.core.frame.DataFrame:
+            mask = [isinstance(value, str) for value in data[Column]]
+            self.data = data.loc[mask]
+            self.data.sort_values(by=Column, inplace=True)
+            self.name_list = self.data.loc[:, Column].astype(str)
+        else:
+            self.name_list = data
+            self.name_list.sort()
+
+        # sorting names and cleaning input
+        names = [name for name in self.name_list if name != "-1"]
+
+        # creating canvas
+        self.canvas = tk.Canvas(master, width=Width, height=Height)
+        self.canvas.bind("<ButtonPress-1>", self.Select)
+        Width = Width
+        Height = Height
+
+        # create an appropriate colour function:
+        self.clr_func = self.clr_func_definer(
+            data, 'b', mode='bool_blend', **options)
+
+        def black_or_white(clr):
+            """takes an input hexcode, returns the hex code for what will be more visible: black or white"""
+            nrs = "0123456789abcdef"
+            r = nrs.index(clr[1])*16+nrs.index(clr[2])
+            g = nrs.index(clr[3])*16+nrs.index(clr[4])
+            b = nrs.index(clr[5])*16+nrs.index(clr[6])
+
+            if r+g+b < 381:  # average value under 127
+                return("#ffffff")
+            else:
+                return("#000000")
+
+        self.text_clr_func = black_or_white
+
+        # determine height and width
+        height_per_name = Height/len(names)
+        width_per_char = max(Width/max([len(name)
+                             for name in names]), min_char_width)
+
+        self.memorydict = self.NameIciclePlot(
+            names, width_per_char, height_per_name, x, y, Width, cutoff, self.data, **options)
+        self.canvas.pack(fill='both', expand=True)
+
+    def NameIciclePlot(self, names, width_per_char, height_per_name, x, y,
+                       outline, cutoff, data: list, topname="", recursioncounter=0, *args, **kwargs):
+        """Plots the icicle graphs by recursive function
+        topname is a variable storing the bit of each name cut off at the front, for later printing
+        recursioncounter is for testing purposes
+        outline is the width + 100, the point where names must have ended"""
+        memorydict = {}
+        last_name = names[0]
+        overlap = len(names[0])
+        nrnames = -1
+        for i in range(0, len(names)):
+            name = names[i]
+            nrnames += 1
+
+            new_overlap = 0
+            flag = False
+            for j in range(0, min(len(name), len(last_name))):
+                # this for loop finds the overlap this word has with the last word
+                if flag == False and name[j] == last_name[j]:
+                    new_overlap += 1
+                else:
+                    flag = True
+            # print(f"line 49, recursion: {recursioncounter}, data: {(names, overlap, new_overlap)}")
+            if new_overlap == 0:
+                # if there is no overlap, we will plot a rectangle representing the last group of words
+                end_x = x+(width_per_char*overlap)
+                end_y = y+(nrnames*height_per_name)
+                if nrnames >= cutoff:
+                    # any displaying will only happen if the cutoff is reached
+                    new_data = data[i-nrnames:i]
+                    rect_clr = self.clr_func(data=new_data, **kwargs)
+                    text_clr = self.text_clr_func(rect_clr)
+                    self.canvas.create_rectangle(
+                        x+1, y+1, end_x-1, end_y-1, fill=rect_clr)
+                    display_text = names[i-1][:overlap]
+                    self.canvas.create_text(x + 5, (y + end_y)/2,
+                                            text=display_text, anchor=tk.W, fill=text_clr)
+                    new_topname = topname + display_text
+                    memorydict[new_topname] = [
+                        (x+1, y+1, end_x-1, end_y-1), False, rect_clr, display_text]
+
+                    # then there is a recursion case: if the overlap wasn't total, recurse on the remaining characters
+                    newnames = names[i-nrnames:i]
+                    full_overlap = [
+                        name for name in newnames if len(name) == overlap]
+                        # required for displaying certain names on right side
+                    # print(f"line 59, recursion: {recursioncounter}, data: {(newnames, overlap)}")
+                    newnames = [name[overlap:] for name in newnames]
+                    # print(newnames)
+                    newnames = [name for name in newnames if len(name) > 0]
+                    # print(newnames)
+                    if len(newnames) > 0:
+                        new_memorydict = self.NameIciclePlot(newnames, width_per_char, height_per_name, end_x, y,
+                                            outline, cutoff, new_data, new_topname, recursioncounter + 1, **kwargs)
+                        memorydict.update(new_memorydict)
+                    # displaying name that was fully overlapped:
+                    if len(full_overlap) >= cutoff:
+                        mid_y = y + len(newnames)*height_per_name
+                        disp_text = topname + \
+                            full_overlap[0] + ' : ' + str(nrnames)
+                        self.canvas.create_text(
+                            outline, (mid_y + end_y)/2, text=disp_text, anchor=tk.E)
+                # reseting values
+                nrnames = 0
+                overlap = len(name)
+                new_overlap = overlap
+                y = end_y
+            # end of iteration updates
+            overlap = min(overlap, new_overlap)
+            last_name = name
+        # draw a rect for the final stuff:
+        nrnames += 1
+        end_x = x+(width_per_char*overlap)
+        end_y = y+(nrnames*height_per_name)
+        if nrnames >= cutoff:
+            new_data = data[len(names)-nrnames:len(names)]
+            rect_clr = self.clr_func(data=new_data, **kwargs)
+            text_clr = self.text_clr_func(rect_clr)
+            self.canvas.create_rectangle(
+                x+1, y+1, end_x-1, end_y-1, fill=rect_clr)
+            display_text = names[-1][:overlap]
+            self.canvas.create_text(
+                x + 5, (y + end_y)/2, text=display_text, anchor=tk.W, fill=text_clr)
+            new_topname = topname + display_text
+            memorydict[new_topname] = [
+                (x+1, y+1, end_x-1, end_y-1), False, rect_clr, display_text]
+
+            # recursion if needed
+            newnames = names[len(names)-nrnames:len(names)]
+
+            full_overlap = [name for name in newnames if len(name) == overlap]
+            # print(f"line 87, recursion: {recursioncounter}, data: {(newnames, overlap)}")
+            newnames = [name[overlap:] for name in newnames]
+            # print(newnames)
+            newnames = [name for name in newnames if len(name) > 0]
+            # print(newnames)
+            if len(newnames) > 0:
+                new_topname = topname + names[i-1][:overlap]
+                new_memorydict = self.NameIciclePlot(newnames, width_per_char, height_per_name, end_x, y,
+                                    outline, cutoff, new_data, new_topname, recursioncounter + 1, **kwargs)
+                memorydict.update(new_memorydict)
+            # displaying name that was fully overlapped:
+            if len(full_overlap) >= cutoff:
+                mid_y = y + len(newnames)*height_per_name
+                disp_text = topname+full_overlap[0] + ' : ' + str(nrnames)
+                self.canvas.create_text(
+                    outline, (mid_y + end_y)/2, text=disp_text, anchor=tk.E)
+        return(memorydict)
+
+    def Select(self, event):
+        """Selects the square which is clicked"""
+        for rect_key in self.memorydict.keys():
+            rect = self.memorydict[rect_key]
+            loc_tup = rect[0]
+            if event.x > loc_tup[0] and event.x < loc_tup[2] and event.y > loc_tup[1] and event.y < loc_tup[3]:
+                if rect[1] == False:
+                    clr = rect[2].lower()
+                    nrs = "0123456789abcdef"
+                    r = (nrs.index(clr[1])*16+nrs.index(clr[2])+50) % 255
+                    g = (nrs.index(clr[3])*16+nrs.index(clr[4])+50) % 255
+                    b = (nrs.index(clr[5])*16+nrs.index(clr[6])+50) % 255
+                    new_clr = self._from_rgb((r, g, b))
+                    self.canvas.create_rectangle(
+                        loc_tup[0], loc_tup[1], loc_tup[2], loc_tup[3], fill=new_clr)
+                    text_clr = self.text_clr_func(new_clr)
+                    self.canvas.create_text(loc_tup[0]+5, (loc_tup[1]+loc_tup[3])/2,
+                                            text=rect[3], anchor=tk.W, fill=text_clr)
+                    rect[1] = True
+
+                elif rect[1] == True:
+                    self.canvas.create_rectangle(
+                        loc_tup[0], loc_tup[1], loc_tup[2], loc_tup[3], fill=rect[2])
+                    text_clr = self.text_clr_func(rect[2])
+                    self.canvas.create_text(loc_tup[0]+5, (loc_tup[1]+loc_tup[3])/2,
+                                            text=rect[3], anchor=tk.W, fill=text_clr)
+                    rect[1] = False
+        # todo: make it work on children of selected node
+ 
+    def clr_func_definer(self, dat, main_clr : str, mode : str, 
+                     bool_clrs : list = None, bool_clmn : str = None, bool_vals : list = None, **kwargs):
+      """Returns a colour function used to colour in a graph
+
+      Arguments:
+      dat: the dataframe that will be used for the graph
+      main_clr: the main colour used. 'r' for red, 'g' for green or 'b' for blue.
+      mode: what mode is used to turn the data into a colour. 
+          Supported modes: 
+          bool: a set of values and colorrs is given. 
+              For each rect, the colour is that of the value that occurs most in this rect
+          bool_blend: a set of values and colours is given
+              For each rect, the colour is the weighted average of colours given, weights being how often each name occurs
+      bool_clrs: a list of rgb tuples for colours for each value, only required in bool mode
+      bool_clmn: the column in the dataframe containing the values worked on, only required in bool mode
+      bool_vals: the values to check for, only required in bool mode
+      """
+
+      convert_main_clr_dict = {'r' : 0, 'g': 1,'b' : 2}
+      main_index = convert_main_clr_dict[main_clr]
+
+      if mode == 'bool' or mode == 'bool_blend': #creates a bool or bool_blend mode function
+          # catching invalid input for bool or bool_blend modes:
+          for item in [bool_clrs, bool_clmn, bool_vals]:
+              if item == None:
+                  raise TypeError('bool_clrs, bool_clmn or bool_vals missing while in bool mode')
+          if len(bool_clrs) != len(bool_vals):
+              raise Exception("""bool_clrs and bool_vals were not of equal length. 
+                              clr_func_definer requires an identical number of colours and values in bool mode.""")
+
+          if mode == 'bool':
+              # actual defining of bool function:
+              def clr_func(data, none_clr = (127,127,127), **kwargs):
+                  f"""Colour function finding the most common value of {bool_vals} in the input dataframe in column {bool_clmn}
+                  and returning the value in {bool_clrs} of the same index.
+                  Arguments:
+                  data: input dataframe containing a column named {bool_clmn}
+                  except_clr: the colour to be output when none of the values in {bool_vals} are encountered"""
+                  # counting occurences of each value:
+                  # print(data.loc[:,['firstname', 'gender']])
+                  nr_counts = {"" : 0}
+                  for val in bool_vals:
+                      nr_counts[val] = 0
+                  for item in data[bool_clmn]:
+                      try:
+                          nr_counts[item] += 1
+                      except:
+                          pass
+                  # determining the most common occurence, prefering values given later by dict.keys:
+                  largest = max(nr_counts, key = nr_counts.get) 
+                  if largest == "":
+                      return(self._from_rgb(none_clr))
+                  # finds correct colour tuple:
+                  clr = bool_clrs[bool_vals.index(largest)]
+                  # print(clr)
+                  return(self._from_rgb(clr))
+          elif mode == 'bool_blend':
+              # actual definition of bool_blend function:
+              def clr_func(data, none_clr = (127,127,127), **kwargs):
+                  f"""
+                  Colour function giving a weighted average of the colours in {bool_clrs}, 
+                  the weights being the number of occurences of {bool_vals} with the same index in {bool_clmn}
+                  Arguments:
+                  data: input dataframe containing a column named {bool_clmn}
+                  except_clr: the colour to be output when none of the values in {bool_vals} are encountered
+                  """
+                  nr_counts = {}
+                  # counting occurences of each value:
+                  # print(data.loc[:,['firstname', 'gender']])
+                  for val in bool_vals:
+                      nr_counts[val] = 0
+                  for item in data[bool_clmn]:
+                      try:
+                          nr_counts[item] += 1
+                      except:
+                          pass
+                  # making a weighted average:
+                  r,g,b = 0,0,0
+                  counter = 0
+                  for val in bool_vals:
+                      # for each value, add the nr of occurences * colour strength to the total colour, 
+                      # and add nr of occurences to the counter
+                      r += bool_clrs[bool_vals.index(val)][0]*nr_counts[val]
+                      g += bool_clrs[bool_vals.index(val)][1]*nr_counts[val]
+                      b += bool_clrs[bool_vals.index(val)][2]*nr_counts[val]
+                      counter += nr_counts[val]
+                      # print(r,g,b,counter)
+                  if counter > 0:
+                      # zeroDivision failsafe: if no values encountered, return none_clr
+                      r = int(r/counter)
+                      g = int(g/counter)
+                      b = int(b/counter)
+                      return(self._from_rgb((r,g,b)))
+                  else:
+                      return(self._from_rgb(none_clr))
+                  # print(r,g,b)
+                  # print(nr_counts)
+
+              return(clr_func)
+
+
+      # default colour function only giving 255 for main_clr
+      def clr_func(**kwargs):
+          clr = [0,0,0]
+          clr[main_index] = 255
+          # print(clr)
+          clr = tuple(clr)
+          return(self._from_rgb(clr))
+      return(clr_func)
+
+    def _from_rgb(self, rgb):
+        """translates an rgb tuple of int to a tkinter friendly color code
+        """
+        return "#%02x%02x%02x" % rgb
