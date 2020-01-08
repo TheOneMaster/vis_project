@@ -7,6 +7,9 @@ import os
 import wordcloud as wc
 import pandas as pd
 from ast import literal_eval
+import re
+
+# Classes that are basically done
 
 class CustomNotebook(ttk.Notebook):
     """A ttk Notebook with close buttons on each tab"""
@@ -154,19 +157,64 @@ class CustomToolbar(NavigationToolbar2Tk):
         return True
 
 
+class DataTable(ttk.Frame):
+    "Creates table representation of dataframe"
+    def __init__(self, master, dataframe, options, **kw):
+        super().__init__(master=master, **kw)
+        dataframe = dataframe.astype(str)
+        columns = dataframe.columns
+        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=8)
+
+        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
+        self.table.config(xscrollcommand=scroll.set)
+
+        self.create_entries(dataframe)
+
+        scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.table.pack(side=tk.BOTTOM, fill='both')
+
+    def create_entries(self, dataframe):
+        
+        columns = dataframe.columns
+        font_obj = font.Font()
+
+        width = font_obj.measure(columns[0])
+        self.table.heading('#0', text=columns[0])
+        self.table.column('#0', width=width)
+
+        for index, row in dataframe.iterrows():
+            row = tuple(row)
+            self.table.insert('', 'end', values=row[1:], text=row[0])
+
+        for i in columns[1:]:
+            self.table.heading(i, text=i)
+            longest = max(dataframe[i].values, key=len).strip()
+            longest_val = font_obj.measure(text=longest)
+            index_val = font_obj.measure(text=i)
+            width = max(longest_val, index_val)
+            self.table.column(i, width=width)
+
+    def update(self, new_data):
+        self.table.delete(*self.table.get_children())
+        self.create_entries(new_data)
+
+# Classes that are still being worked on 
+
 class NotebookTab(ttk.Frame):
     "A ttk Frame with the frame layout and figure for the notebook"
 
     def __init__(self, master, notebook, data, kind, options, labels, *args, **kwargs):
         super().__init__(master=master, **kwargs)
 
+        self.hover = False
         self.is_empty = True
         self.is_wordcloud = False
 
         plot_types = {
             'Barplot': self.barplot,
             'Wordcloud': self.wordcloud,
-            'Icicle': self.icicle
+            'Icicle': self.icicle,
+            'Line': self.line
         }
 
         if labels['xkcd'].get():
@@ -197,11 +245,13 @@ class NotebookTab(ttk.Frame):
 
             figure.set_tight_layout(True)
 
-            canvas = FigureCanvasTkAgg(figure, master=self)
-            # canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
+            self.canvas = FigureCanvasTkAgg(figure, master=self)
+
+            if self.hover is not None:
+                self.canvas.mpl_connect('motion_notify_event', lambda event: self.hover(event))
 
             toolbar_kwargs = {
-                'canvas': canvas,
+                'canvas': self.canvas,
                 'window': self,
                 'figure': figure
             }
@@ -212,8 +262,8 @@ class NotebookTab(ttk.Frame):
             toolbar = CustomToolbar(**toolbar_kwargs)
             toolbar.update()
 
-            canvas.draw()
-            canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
+            self.canvas.draw()
+            self.canvas.get_tk_widget().pack(side=tk.TOP, fill='both', expand=True)
 
     def wordcloud(self, data, options, labels):
         self.is_wordcloud = True
@@ -275,6 +325,50 @@ class NotebookTab(ttk.Frame):
 
     def icicle(self, data, options, labels):
         return IciclePlot(self, data, options)
+
+    def line(self, data, options, labels):
+
+        # Data manipulation
+        figure = plt.Figure(figsize=(7, 5))
+        ax = figure.add_subplot()
+        options = "Year"
+        names = data.groupby([options]).count().iloc[:,0]
+        line, = ax.plot(names.index, names.values, marker='o', color='green', mfc='red')
+
+        annot = ax.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"))
+        annot.set_visible(False)
+
+        def update_annot(ind):
+            x,y = line.get_data()
+            ind = ind['ind'][0]
+            annot.xy = (x[ind], y[ind])
+            text = f"{options}-{names.index[ind]}, People-{names.values[ind]}"
+            annot.set_text(text)
+            annot.get_bbox_patch().set_alpha(0.4)
+
+
+        def hover(event):
+            vis = annot.get_visible()
+            if event.inaxes == ax:
+                cont, ind = line.contains(event)
+                if cont:
+                    update_annot(ind)
+                    annot.set_visible(True)
+                    self.canvas.draw_idle()
+                else:
+                    if vis:
+                        annot.set_visible(False)
+                        self.canvas.draw_idle()
+            else:
+                if vis:
+                    annot.set_visible(False)
+                    self.canvas.draw_idle()
+
+        self.hover = hover                
+        return figure
+
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -338,7 +432,7 @@ class LabelFrameInput(ttk.LabelFrame):
 
             if primary == 'data_input':
                 top_frame = ttk.Frame(self)
-                str_var = tk.StringVar()
+                str_var = tk.StringVar(value='No file selected')
                 filename = ttk.Label(top_frame, textvariable=str_var)
                 data_input = ttk.Button(
                     top_frame, text='Select data file', command=lambda: str_var.set(command()))
@@ -380,11 +474,17 @@ class LabelFrameInput(ttk.LabelFrame):
                 entry_widget[identity] = stringvar
 
             elif widget == 'combo':
-                pass
+                stringvar = tk.StringVar()
+                options = kwargs.pop('options')
+                widget = self.key[widget](frame, textvariable=stringvar, values=list(options[0:10]), **kwargs)
+                widget.bind('<KeyRelease>', lambda event: self.get_names(stringvar, widget, options.copy()))
+                entry_widget[identity] = stringvar
+
             elif widget == 'checkbutton':
                 intvar = tk.IntVar()
                 widget = self.key[widget](frame, variable=intvar)
                 entry_widget[identity] = intvar
+
             else:
                 widget = self.key[widget](frame, **kwargs)
                 entry_widget[identity] = widget
@@ -426,47 +526,27 @@ class LabelFrameInput(ttk.LabelFrame):
                 self.current = self.frames[name]
                 self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
-
-class DataTable(ttk.Frame):
-    "Creates table representation of dataframe"
-    def __init__(self, master, dataframe, options, **kw):
-        super().__init__(master=master, **kw)
-        dataframe = dataframe.astype(str)
-        columns = dataframe.columns
-        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=8)
-
-        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
-        self.table.config(xscrollcommand=scroll.set)
-
-        self.create_entries(dataframe)
-
-        scroll.pack(side=tk.BOTTOM, fill=tk.X)
-        self.table.pack(side=tk.BOTTOM, fill='both')
-
-    def create_entries(self, dataframe):
+    def get_names(self, stringvar, combo, names):
+        val = stringvar.get().strip()
         
-        columns = dataframe.columns
-        font_obj = font.Font()
+        if not val:
+            combo['values'] = names[0:10]
+        else:
+            val = val.lower()
+            regex = re.compile(f'{val}')
+            values = [index for index, name in enumerate(names) if regex.match(name.lower())]
 
-        width = font_obj.measure(columns[0])
-        self.table.heading('#0', text=columns[0])
-        self.table.column('#0', width=width)
+            if len(values) >= 10:
+                values = values[0:10]
+                     
+            elif len(values) == 0:
+                regex = re.compile(f'[{val}]')
+                values = [index for index, name in enumerate(names) if regex.match(name.lower())]
+                if len(values)>10:
+                    values = values[0:10]
 
-        for index, row in dataframe.iterrows():
-            row = tuple(row)
-            self.table.insert('', 'end', values=row[1:], text=row[0])
-
-        for i in columns[1:]:
-            self.table.heading(i, text=i)
-            longest = max(dataframe[i].values, key=len).strip()
-            longest_val = font_obj.measure(text=longest)
-            index_val = font_obj.measure(text=i)
-            width = max((longest_val, index_val))
-            self.table.column(i, width=width)
-
-    def update(self, new_data):
-        self.table.delete(*self.table.get_children())
-        self.create_entries(new_data)
+            values = [names[i] for i in values] if len(values)>0 else names[0:10]
+            combo['values'] = values
 
 
 class IciclePlot(tk.Canvas):
@@ -829,3 +909,4 @@ class IciclePlot(tk.Canvas):
         """translates an rgb tuple of int to a tkinter friendly color code
         """
         return "#%02x%02x%02x" % rgb
+

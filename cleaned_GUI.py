@@ -18,7 +18,7 @@ class MainWindow(ttk.Frame):
 
         self.left_frame = ttk.Frame(self)
         self.mid_frame = ttk.Frame(self)
-        self.bottom_frame = ttk.Frame(self, height=150)
+        self.bottom_frame = ttk.Frame(self, height=205)
         self.data = None
 
         """
@@ -26,9 +26,9 @@ class MainWindow(ttk.Frame):
         """
         # Data entry
 
-        input_options = [{'kind': 'entry', 'label': 'test', 'id': 'test'}]
+        input_options = [{'kind': 'combo', 'label': 'First Name', 'id': 'test', 'options': ['Not available']}]
         self.data_input = LabelFrameInput(
-            self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter, self.clean_filter])
+            self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter_data, self.clear_filter])
 
         # Graph Options
         barplot_widgets = [
@@ -79,8 +79,7 @@ class MainWindow(ttk.Frame):
         self.data_input.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.plot_labels.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
         self.graph_options.pack(side=tk.TOP, fill='both',
-                                expand=True, padx=5, pady=5)
-        
+                                expand=True, padx=5, pady=5)    
 
         """
         Middle frame widgets
@@ -88,10 +87,7 @@ class MainWindow(ttk.Frame):
         # Notebook
         self.notebook = CustomNotebook(self.mid_frame)
         self.notebook.pack(fill='both', expand=True)
-        # self.notebook.pack(fill='both', expand=True)
-
-        
-
+            
         """
         Bottom frame widgets
         """
@@ -112,20 +108,27 @@ class MainWindow(ttk.Frame):
                 self.base = data
             
             self.data = self.base.copy(deep=True)
-
-            df_columns = data.columns
+            
             try:
                 self.table.destroy()
-                self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
+                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both', expand=True)
             except:
-                self.table = DataTable(self.bottom_frame, data.head(10).copy(), None)
+                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both', expand=True)
 
+            df_columns = data.columns
             for widget in self.graph_options.inputs.values():
                 for dictionary in widget:
                     if dictionary['id'] in {'column', 'bool_column'}:
                         dictionary['options'] = df_columns
+
+            for i in df_columns:
+                if i in {'FirstName', 'Firstname', 'firstname', 'firstName', 'First Name'}:
+                    names = data.groupby(i).count().iloc[:,0].sort_values(ascending=False)
+                    self.data_input.inputs[0]['options'] = list(names.index)
+                    break
+            
 
             self.data_input.is_data = True
             self.graph_options.is_data = True
@@ -158,7 +161,7 @@ class MainWindow(ttk.Frame):
 
         else:
             kind = self.graph_options.graph_type.get()
-            options = self.graph_options.values[kind]
+            options = self.graph_options.values[kind] if kind in self.graph_options.values else None
             labels = self.plot_labels.values
 
             frame = NotebookTab(self.notebook, notebook=self.notebook,
@@ -173,10 +176,12 @@ class MainWindow(ttk.Frame):
                 self.notebook.add(frame, text=title)
                 self.notebook.select(frame)
 
-    def filter(self):
+    def filter_data(self):
+        options = self.data_input.values
+        print(options)
         pass
 
-    def clean_filter(self):
+    def clear_filter(self):
         self.data = self.base.copy(deep=True)
         self.table.update(self.data.head(10).copy())
 
