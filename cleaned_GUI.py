@@ -1,7 +1,7 @@
 # Tkinter libraries
 import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
-from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTable, IciclePlot
+from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTable, compress_dataframe
 
 # Other libraries
 from pandas import read_csv
@@ -19,6 +19,7 @@ class MainWindow(ttk.Frame):
         self.left_frame = ttk.Frame(self)
         self.mid_frame = ttk.Frame(self)
         self.bottom_frame = ttk.Frame(self, height=205)
+        self.base = None
         self.data = None
 
         """
@@ -26,36 +27,49 @@ class MainWindow(ttk.Frame):
         """
         # Data entry
 
-        input_options = [{'kind': 'combo', 'label': 'First Name', 'id': 'test', 'options': ['Not available']}]
+        input_options = [{'kind': 'combo', 'label': 'First Name',
+                          'id': 'first_name', 'options': ['Not available']}]
         self.data_input = LabelFrameInput(
             self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter_data, self.clear_filter])
 
         # Graph Options
         barplot_widgets = [
-            {'kind': 'optionmenu', 'label': 'Column', 'options': ['Not available'], 'id': 'column'},
+            {'kind': 'optionmenu', 'label': 'Column',
+                'options': ['Not available'], 'id': 'column'},
             {'kind': 'entry', 'label': 'Nr. of categories', 'id': 'categories'}
-            ]
-        
+        ]
+
         wordcloud_widgets = [
-            {'kind': 'optionmenu', 'label': 'Column', 'options': ['Not available'], 'id': 'column'},
-            {'kind': 'optionmenu', 'label': 'BG color', 'options': ['White', 'Black', 'Transparent'], 'id': 'bg'},
+            {'kind': 'optionmenu', 'label': 'Column',
+                'options': ['Not available'], 'id': 'column'},
+            {'kind': 'optionmenu', 'label': 'BG color', 'options': [
+                'White', 'Black', 'Transparent'], 'id': 'bg'},
             {'kind': 'entry', 'label': 'Filter', 'id': 'filter'}
-            ]
+        ]
 
         icicle_widgets = [
-                {'kind': 'optionmenu', 'label' : 'Column', 'options' : ['Not Available'], 'id': 'column'},
-                {'kind': 'entry','label' : 'Cutoff', 'id': 'cutoff'},
-                {'kind': 'entry', 'label' : 'Width', 'id': 'width'},
-                {'kind': 'entry', 'label' : 'Height', 'id': 'height'},
-                {'kind': 'entry', 'label' : 'Min Char Width', 'id': 'min_char_width'},
-                {'kind': 'entry', 'label' : 'Colours', 'id': 'colours'},
-                {'kind': 'entry', 'label' : 'Values', 'id': 'values'},
-                {'kind': 'optionmenu', 'label' : 'Bool column', 'options' : ['Not Available'], 'id': 'bool_column'}
-            ]
-        
+            {'kind': 'optionmenu', 'label': 'Column',
+                'options': ['Not Available'], 'id': 'column'},
+            {'kind': 'entry', 'label': 'Cutoff', 'id': 'cutoff'},
+            {'kind': 'entry', 'label': 'Width', 'id': 'width'},
+            {'kind': 'entry', 'label': 'Height', 'id': 'height'},
+            {'kind': 'entry', 'label': 'Min Char Width', 'id': 'min_char_width'},
+            {'kind': 'entry', 'label': 'Colours', 'id': 'colours'},
+            {'kind': 'entry', 'label': 'Values', 'id': 'values'},
+            {'kind': 'optionmenu', 'label': 'Bool column',
+                'options': ['Not Available'], 'id': 'bool_column'}
+        ]
+
+        line_widgets = [
+            {'kind': 'optionmenu', 'label': 'Y Axis',
+                'options': ['Not Available'], 'id': 'y'},
+            {'kind': 'optionmenu', 'label': 'X Axis',
+                'options': ['Not Available'], 'id': 'x'}
+        ]
         graph_options = {
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets,
+            'Line': line_widgets,
             'Icicle': icicle_widgets
         }
 
@@ -64,11 +78,11 @@ class MainWindow(ttk.Frame):
 
         # Plot labels
         plot_labels = [
-            {'kind': 'entry','label': 'Title', 'id':'title'}, 
-            {'kind':'entry', 'label': 'Subtitle', 'id':'subtitle'}, 
-            {'kind': 'entry','label': 'Y Label', 'id': 'ylab'}, 
-            {'kind':'entry','label': 'X Label', 'id': 'xlab'}, 
-            {'kind':'checkbutton','label': 'xkcd', 'id': 'xkcd'}
+            {'kind': 'entry', 'label': 'Title', 'id': 'title'},
+            {'kind': 'entry', 'label': 'Subtitle', 'id': 'subtitle'},
+            {'kind': 'entry', 'label': 'Y Label', 'id': 'ylab'},
+            {'kind': 'entry', 'label': 'X Label', 'id': 'xlab'},
+            {'kind': 'checkbutton', 'label': 'xkcd', 'id': 'xkcd'}
         ]
         self.plot_labels = LabelFrameInput(
             self.left_frame, plot_labels, text='Graph Labels')
@@ -79,7 +93,7 @@ class MainWindow(ttk.Frame):
         self.data_input.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         self.plot_labels.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
         self.graph_options.pack(side=tk.TOP, fill='both',
-                                expand=True, padx=5, pady=5)    
+                                expand=True, padx=5, pady=5)
 
         """
         Middle frame widgets
@@ -87,7 +101,7 @@ class MainWindow(ttk.Frame):
         # Notebook
         self.notebook = CustomNotebook(self.mid_frame)
         self.notebook.pack(fill='both', expand=True)
-            
+
         """
         Bottom frame widgets
         """
@@ -96,7 +110,7 @@ class MainWindow(ttk.Frame):
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y)
         self.bottom_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
-        
+
     def get_data(self):
 
         try:
@@ -104,42 +118,67 @@ class MainWindow(ttk.Frame):
             filename = filedialog.askopenfilename(filetypes=file_types)
 
             with open(filename, 'r', encoding='utf-8') as data_file:
-                data = read_csv(data_file, engine='c')
+                del self.base, self.data
+                data = read_csv(data_file)
+                print(data.info(verbose=False))
+                compress_dataframe(data)
+                print(data.info())
                 self.base = data
-            
+
             self.data = self.base.copy(deep=True)
-            
+
             try:
                 self.table.destroy()
-                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
+                self.table = DataTable(
+                    self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both', expand=True)
             except:
-                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
+                self.table = DataTable(
+                    self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both', expand=True)
 
             df_columns = data.columns
             for widget in self.graph_options.inputs.values():
                 for dictionary in widget:
-                    if dictionary['id'] in {'column', 'bool_column'}:
+                    if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
                         dictionary['options'] = df_columns
 
-            for i in df_columns:
-                if i in {'FirstName', 'Firstname', 'firstname', 'firstName', 'First Name'}:
-                    names = data.groupby(i).count().iloc[:,0].sort_values(ascending=False)
-                    self.data_input.inputs[0]['options'] = list(names.index)
-                    break
-            
+            # for i in df_columns:
+            #     if i in {'FirstName', 'Firstname', 'firstname', 'firstName', 'First Name'}:
+            #         names = data[i].value_counts(ascending=False)
+            #         self.data_input.inputs[0]['options'] = list(names.index)
+            #         break
+
+            # temp_list = []
+            # for i in data.select_dtypes(['object', 'category']).columns:
+            #     val = data[i].value_counts(ascending=False).index
+            #     dtype = val.dtype.name
+            #     test = {
+            #         'kind': 'combo',
+            #         'label': i,
+            #         'options': val,
+            #         'id': i.lower()
+            #     }
+
+            #     test['options'] = val
+            #     temp_list.append(test)
+
+            temp_list = [dict(kind='combo', label=i, id=i.lower(), options=data[i].value_counts(ascending=False).index)
+                         for i in data.select_dtypes(['object', 'category']).columns]
+
+            self.data_input.inputs = temp_list
 
             self.data_input.is_data = True
             self.graph_options.is_data = True
             self.plot_labels.is_data = True
 
-            messagebox.showinfo(title='Data entry',
-                                message='File has been read.')
-
             self.data_input.update()
             self.graph_options.update()
             self.plot_labels.update()
+
+            messagebox.showinfo(title='Data entry',
+                                message='File has been read.')
+
             return os.path.basename(filename)
 
         except FileNotFoundError:
@@ -178,12 +217,15 @@ class MainWindow(ttk.Frame):
 
     def filter_data(self):
         options = self.data_input.values
-        print(options)
+
+        for key, val in options.items():
+            print(i)
         pass
 
     def clear_filter(self):
         self.data = self.base.copy(deep=True)
         self.table.update(self.data.head(10).copy())
+
 
 def main():
     root = tk.Tk()

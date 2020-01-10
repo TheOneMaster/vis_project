@@ -4,15 +4,18 @@ Files for the GUI.
 
 ## Done
 1. Bar plot (All columns)
-2. Wordcloud (No real options yet)
+2. Wordcloud
+3. Line Plot (No real options)
+4. Icicle Plot (Needs to be optimised)
 2. Save Images
 3. Add data to tool
-4. Custom label entries
+1. Added filter for string data (only whitelist)
+1. Shows slice of data being used
 
 
 ## To be done
-* Plots of other types (line, node, etc)
+* Plots of other types (node, etc)
 * Output tab (Unsure what to add)
-* Additional input (Year selection, etc)
 * Maybe graph info of some sort (summary of data used for plotting, etc)
+* Interactivity for plots other than Line
 

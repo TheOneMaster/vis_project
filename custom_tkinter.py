@@ -1,13 +1,64 @@
 import tkinter as tk
 from tkinter import ttk, font, filedialog, messagebox
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import wordcloud as wc
+
+import pandas as pd
+import numpy as np
+
 from copy import deepcopy, copy
 import os
-import wordcloud as wc
-import pandas as pd
 from ast import literal_eval
 import re
+
+def compress_dataframe(dataframe):
+
+    def int_compress(col, float_val=False):
+        if not float_val:
+            for i in col:
+                data = dataframe[i].values
+                max_val = data.max()
+                min_val = data.min()
+
+                if (max_val<=127 and min_val>=-128):
+                    dataframe[i] = data.astype("int8")
+                elif (min_val>=-32768 and max_val<=32767):
+                    dataframe[i] = data.astype("int16")
+                elif (min_val>=-2,147,483,648 and max_val<=2,147,483,647):
+                    dataframe[i] = data.astype("int32")
+        else:
+            for i in col:
+                data = dataframe[i].fillna(-1).values
+                max_val = data.max()
+                min_val = data.min()
+
+                if (max_val<=127 and min_val>=-128):
+                    dataframe[i] = data.astype("int8")
+                elif (min_val>=-32768 and max_val<=32767):
+                    dataframe[i] = data.astype("int16")
+                elif (min_val>=-2,147,483,648 and max_val<=2,147,483,647):
+                    dataframe[i] = data.astype("int32")
+
+    def float_compress(col):
+        pass
+
+    def obj_compress(col):
+        for i in obj_col:
+        unique = len(dataframe[i].unique())
+        if unique <= 20:
+            dataframe[i] = dataframe[i].astype("category")
+
+    int64_col = dataframe.select_dtypes("int64").columns
+    int_compress(int64_col)
+
+    float64_col = dataframe.select_dtypes("float64").columns   
+    # float_to_int = [i for i in float64_col if all(np.isclose(data:=dataframe[i].values, data.astype('int')))]
+    float_compress(float_to_int, float_val=True)
+    
+    obj_col = dataframe.select_dtypes("object")
+    obj_compress(obj_col)
 
 # Classes that are basically done
 
@@ -198,6 +249,38 @@ class DataTable(ttk.Frame):
         self.table.delete(*self.table.get_children())
         self.create_entries(new_data)
 
+
+class CheckCombo(ttk.Combobox):
+
+    def __init__(self, master, **kw):
+        self.stringvar = tk.StringVar()
+        self.options = kw.pop('values')
+        super().__init__(master=master, textvariable=self.stringvar, values=list(self.options[0:10]), **kw)
+        self.bind('<KeyRelease>', self.get_val)
+
+    def get_val(self, event):
+        val = self.stringvar.get().strip()
+        if val:
+            options = [str(x) for x in self.options]
+            val = val.lower()
+            regex = re.compile(f'{val}')
+            values = [index for index, value in enumerate(options) if regex.match(value.lower())]
+            n = len(values)
+
+            if n >= 10:
+                values = values[0:10]
+            else:
+                regex = re.compile(f'[{val}]')
+                values = [index for index, value in enumerate(options) if regex.match(value.lower())]
+                new = len(values)
+                if new >= 10:
+                    values = values[0:10]
+                
+            self['values'] = [self.options[i] for i in values] if len(values)>0 else self.options[0:10]
+        else:
+            self['values'] = self.options[0:10]
+ 
+
 # Classes that are still being worked on 
 
 class NotebookTab(ttk.Frame):
@@ -328,15 +411,16 @@ class NotebookTab(ttk.Frame):
 
     def line(self, data, options, labels):
 
+        y_ax = options['y'].get()
+        x_ax = options['x'].get()
         # Data manipulation
         figure = plt.Figure(figsize=(7, 5))
         ax = figure.add_subplot()
-        options = "Year"
-        names = data.groupby([options]).count().iloc[:,0]
+        names = data.groupby([y_ax]).count().iloc[:,0]
         line, = ax.plot(names.index, names.values, marker='o', color='green', mfc='red')
 
         annot = ax.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="w"),
+                    bbox=dict(boxstyle="round", fc="grey"),
                     arrowprops=dict(arrowstyle="->"))
         annot.set_visible(False)
 
@@ -344,10 +428,9 @@ class NotebookTab(ttk.Frame):
             x,y = line.get_data()
             ind = ind['ind'][0]
             annot.xy = (x[ind], y[ind])
-            text = f"{options}-{names.index[ind]}, People-{names.values[ind]}"
+            text = f"{y_ax}-{names.index[ind]}, People-{names.values[ind]}"
             annot.set_text(text)
-            annot.get_bbox_patch().set_alpha(0.4)
-
+            annot.get_bbox_patch().set_alpha(0.5)
 
         def hover(event):
             vis = annot.get_visible()
@@ -359,16 +442,12 @@ class NotebookTab(ttk.Frame):
                     self.canvas.draw_idle()
                 else:
                     if vis:
+                        annot.set_text('')
                         annot.set_visible(False)
                         self.canvas.draw_idle()
-            else:
-                if vis:
-                    annot.set_visible(False)
-                    self.canvas.draw_idle()
 
         self.hover = hover                
         return figure
-
 
 
 class LabelFrameInput(ttk.LabelFrame):
@@ -391,7 +470,7 @@ class LabelFrameInput(ttk.LabelFrame):
         'entry': ttk.Entry,
         'optionmenu': ttk.OptionMenu,
         'button': ttk.Button,
-        'combo': ttk.Combobox,
+        'combo': CheckCombo,
         'checkbutton': ttk.Checkbutton
     }
 
@@ -474,11 +553,9 @@ class LabelFrameInput(ttk.LabelFrame):
                 entry_widget[identity] = stringvar
 
             elif widget == 'combo':
-                stringvar = tk.StringVar()
                 options = kwargs.pop('options')
-                widget = self.key[widget](frame, textvariable=stringvar, values=list(options[0:10]), **kwargs)
-                widget.bind('<KeyRelease>', lambda event: self.get_names(stringvar, widget, options.copy()))
-                entry_widget[identity] = stringvar
+                widget = self.key[widget](frame, values=options, **kwargs)
+                entry_widget[identity] = widget.stringvar
 
             elif widget == 'checkbutton':
                 intvar = tk.IntVar()
@@ -528,7 +605,7 @@ class LabelFrameInput(ttk.LabelFrame):
 
     def get_names(self, stringvar, combo, names):
         val = stringvar.get().strip()
-        
+        print(val)
         if not val:
             combo['values'] = names[0:10]
         else:
