@@ -217,12 +217,12 @@ class DataTable(ttk.Frame):
         columns = dataframe.columns
         self.table = ttk.Treeview(self, columns=tuple(columns))
 
-        scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
-        self.table.config(xscrollcommand=scroll.set)
+        scroll = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.table.yview)
+        self.table.config(yscrollcommand=scroll.set)
 
         self.create_entries(dataframe)
 
-        scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.table.pack(side=tk.BOTTOM, fill='both')
 
     def create_entries(self, dataframe, init=False):
@@ -312,6 +312,7 @@ class NotebookTab(ttk.Frame):
 
         if figure is None:
             pass
+        
         elif isinstance(figure, tk.Canvas):
             self.is_empty = False
             title = labels['title'].get().strip()
@@ -320,6 +321,7 @@ class NotebookTab(ttk.Frame):
             if title is not None:
                 figure.canvas.create_text(0, 0, text=title)
             canvas = figure.canvas
+        
         else:
             self.is_empty = False
             title = labels['title'].get()
@@ -518,7 +520,7 @@ class LabelFrameInput(ttk.LabelFrame):
                 filename = ttk.Label(top_frame, textvariable=str_var)
                 data_input = ttk.Button(
                     top_frame, text='Select data file', command=lambda: str_var.set(command()))
-                filename.pack(side=tk.BOTTOM, expand=True)
+                filename.pack(side=tk.BOTTOM, expand=True, anchor=tk.CENTER)
                 data_input.pack(fill='both')
 
                 bottom_frame = ttk.Frame(self)
@@ -641,22 +643,30 @@ class IciclePlot(tk.Canvas):
         super().__init__(master=master)
 
         # retype strings to integers and tuples:
-        options = inputs.copy()
+        options = deepcopy(inputs)
         Column = options['column'].get()
         try:
             cutoff = options.pop('cutoff').get().strip()
             Height = options['height'].get().strip()
             Width = options['width'].get().strip()
             min_char_width = options['min_char_width'].get()
-            cutoff = int(cutoff) if cutoff.isdigit() else 1
-            Height = int(Height) if Height.isdigit() else 700
-            Width = int(Width) if Width.isdigit() else 700
-            min_char_width = int(
-                min_char_width) if min_char_width.isdigit() else 1
+            # cutoff = int(cutoff) if cutoff.isdigit() else 1
+            
+            for i in [Height, Width]:
+                i = int(i) if i.isdigit() else 700
+            
+            for i in [cutoff, min_char_width]:
+                i = int(i) if i.isdigit() else 1
+
+            # Height = int(Height) if Height.isdigit() else 700
+            # Width = int(Width) if Width.isdigit() else 700
+            # min_char_width = int(
+            #     min_char_width) if min_char_width.isdigit() else 1
         except ValueError:
             title = 'Incorrect Input'
             message = 'cutoff, Height, Width or min_char_width was not coercable to int'
             messagebox.showerror(title=title, message=message)
+        
         # decode strings representing tuples:
         bool_clrs_str = options['colours'].get().strip()
         bool_clrs = literal_eval(f'[{bool_clrs_str}]')
@@ -699,10 +709,10 @@ class IciclePlot(tk.Canvas):
 
         # get the name column from the dataframe if needed, sort stuff
         if type(data) == pd.core.frame.DataFrame:
-            mask = [isinstance(value, str) for value in data[Column]]
+            mask = data[Column].notnull().values
             self.data = data.loc[mask]
             self.data.sort_values(by=Column, inplace=True)
-            self.name_list = self.data.loc[:, Column].astype(str)
+            self.name_list = self.data[Column].astype(str).values
         else:
             self.name_list = data
             self.name_list.sort()

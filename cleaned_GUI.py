@@ -6,7 +6,7 @@ from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTab
 # Other libraries
 from pandas import read_csv
 import os
-
+import numpy as np
 
 class MainWindow(ttk.Frame):
 
@@ -120,8 +120,7 @@ class MainWindow(ttk.Frame):
                 data = read_csv(data_file)
                 compress_dataframe(data)
                 self.base = data
-
-            self.data = self.base.copy(deep=True)
+                self.data = self.base.copy(deep=True)
 
             try:
                 self.table.destroy()
@@ -141,6 +140,8 @@ class MainWindow(ttk.Frame):
 
             temp_list = [dict(kind='combo', label=i, id=i, options=data[i].value_counts(ascending=False).index)
                          for i in data.select_dtypes(['object', 'category']).columns]
+            temp_list.append(dict(kind='entry', label='Nr. of Rows', id='rows'))
+
 
             self.data_input.inputs = temp_list
 
@@ -191,13 +192,27 @@ class MainWindow(ttk.Frame):
 
         for key, val in options.items():
             text = val.get().strip()
+            
             if text:
-                self.data = self.data[~(self.data[key]==text)].reset_index(drop=True)
-                self.table.update(self.data.head(50))
+                try: 
+                    self.data = self.data[~(self.data[key]==text)].reset_index(drop=True)
+                except:
+                    rows = val.get()
+                    length = len(self.data.index)
+                    rows = int(rows) if rows.isdigit() else length
+                    rows = min(rows, length)
+                    self.data = self.data.head(rows)
+                                
+                try:
+                    val.set("")
+                except AttributeError:
+                    val.delete(0, 'end')
+        
+        self.table.update(self.data.head(50))
         
     def clear_filter(self):
         self.data = self.base.copy(deep=True)
-        self.table.update(self.data.head(50).copy(), init=True)
+        self.table.update(self.data.head(50).copy())
 
 
 def main():
