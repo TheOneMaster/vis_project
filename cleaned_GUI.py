@@ -27,10 +27,8 @@ class MainWindow(ttk.Frame):
         """
         # Data entry
 
-        input_options = [{'kind': 'combo', 'label': 'First Name',
-                          'id': 'first_name', 'options': ['Not available']}]
         self.data_input = LabelFrameInput(
-            self.left_frame, input_options, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter_data, self.clear_filter])
+            self.left_frame, None, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter_data, self.clear_filter])
 
         # Graph Options
         barplot_widgets = [
@@ -120,9 +118,7 @@ class MainWindow(ttk.Frame):
             with open(filename, 'r', encoding='utf-8') as data_file:
                 del self.base, self.data
                 data = read_csv(data_file)
-                data.info(verbose=False)
                 compress_dataframe(data)
-                data.info()
                 self.base = data
 
             self.data = self.base.copy(deep=True)

@@ -283,7 +283,6 @@ class CheckCombo(ttk.Combobox):
         else:
             self['values'] = self.options[0:10]
  
-
 # Classes that are still being worked on 
 
 class NotebookTab(ttk.Frame):
@@ -333,7 +332,7 @@ class NotebookTab(ttk.Frame):
 
             self.canvas = FigureCanvasTkAgg(figure, master=self)
 
-            if self.hover is not None:
+            if self.hover is not False:
                 self.canvas.mpl_connect('motion_notify_event', lambda event: self.hover(event))
 
             toolbar_kwargs = {
@@ -485,6 +484,7 @@ class LabelFrameInput(ttk.LabelFrame):
         super().__init__(master, **kwargs)
         self.is_data = False
         self.inputs = inputs
+        self.frames = None
 
         if primary == 'graph_options':
 
@@ -531,9 +531,11 @@ class LabelFrameInput(ttk.LabelFrame):
                 top_frame.pack(side=tk.TOP, fill=tk.X, pady=5, padx=5)
                 bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
 
-
-            self.frames, self.values = self.create_frame(inputs)
-            self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
+            if inputs is not None:
+                self.frames, self.values = self.create_frame(inputs)
+                self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
+            else:
+                pass
 
     def create_frame(self, entries):
 
@@ -595,9 +597,13 @@ class LabelFrameInput(ttk.LabelFrame):
                         self.current.pack(side=tk.TOP, fill=tk.X, padx=5)
 
             else:
-                self.frames.destroy()
-                self.frames, self.values = self.create_frame(self.inputs)
-                self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
+                try:
+                    self.frames.destroy()
+                    self.frames, self.values = self.create_frame(self.inputs)
+                    self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
+                except AttributeError:
+                    self.frames, self.values = self.create_frame(self.inputs)
+                    self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
 
         else:
             self.current.pack_forget()
