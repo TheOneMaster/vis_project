@@ -30,32 +30,33 @@ def compress_dataframe(dataframe):
                     dataframe[i] = data.astype("int32")
         else:
             for i in col:
-                data = dataframe[i].fillna(-1).values
-                max_val = data.max()
-                min_val = data.min()
+                data = dataframe[i]
+                val = data.fillna(-1).values
+                max_val = val.max()
+                min_val = val.min()
 
                 if (max_val<=127 and min_val>=-128):
-                    dataframe[i] = data.astype("int8")
+                    dataframe[i] = data.astype("Int8")
                 elif (min_val>=-32768 and max_val<=32767):
-                    dataframe[i] = data.astype("int16")
+                    dataframe[i] = data.astype("Int16")
                 elif (min_val>=-2,147,483,648 and max_val<=2,147,483,647):
-                    dataframe[i] = data.astype("int32")
+                    dataframe[i] = data.astype("Int32")
 
     def float_compress(col):
         pass
 
     def obj_compress(col):
-        for i in obj_col:
-        unique = len(dataframe[i].unique())
-        if unique <= 20:
-            dataframe[i] = dataframe[i].astype("category")
+        for i in col:
+            unique = len(dataframe[i].unique())
+            if unique <= 20:
+                dataframe[i] = dataframe[i].astype("category")
 
     int64_col = dataframe.select_dtypes("int64").columns
     int_compress(int64_col)
 
     float64_col = dataframe.select_dtypes("float64").columns   
-    # float_to_int = [i for i in float64_col if all(np.isclose(data:=dataframe[i].values, data.astype('int')))]
-    float_compress(float_to_int, float_val=True)
+    float_to_int = [i for i in float64_col if all(np.isclose(data:=dataframe[i].fillna(-1).values, data.astype('int')))]
+    int_compress(float_to_int, float_val=True)
     
     obj_col = dataframe.select_dtypes("object")
     obj_compress(obj_col)
@@ -214,7 +215,7 @@ class DataTable(ttk.Frame):
         super().__init__(master=master, **kw)
         dataframe = dataframe.astype(str)
         columns = dataframe.columns
-        self.table = ttk.Treeview(self, columns=tuple(columns[1:]), height=8)
+        self.table = ttk.Treeview(self, columns=tuple(columns))
 
         scroll = ttk.Scrollbar(self, orient=tk.HORIZONTAL, command=self.table.xview)
         self.table.config(xscrollcommand=scroll.set)
@@ -224,30 +225,32 @@ class DataTable(ttk.Frame):
         scroll.pack(side=tk.BOTTOM, fill=tk.X)
         self.table.pack(side=tk.BOTTOM, fill='both')
 
-    def create_entries(self, dataframe):
+    def create_entries(self, dataframe, init=False):
         
         columns = dataframe.columns
         font_obj = font.Font()
 
-        width = font_obj.measure(columns[0])
-        self.table.heading('#0', text=columns[0])
-        self.table.column('#0', width=width)
+        self.table.heading('#0', text='Index')
 
         for index, row in dataframe.iterrows():
             row = tuple(row)
-            self.table.insert('', 'end', values=row[1:], text=row[0])
+            self.table.insert('', 'end', values=row, text=index)
 
-        for i in columns[1:]:
-            self.table.heading(i, text=i)
-            longest = max(dataframe[i].values, key=len).strip()
-            longest_val = font_obj.measure(text=longest)
-            index_val = font_obj.measure(text=i)
-            width = max(longest_val, index_val)
-            self.table.column(i, width=width)
+        if not init:
+            width = font_obj.measure('Index')
+            self.table.column('#0', width=width, stretch=True)
+            for i in columns:
+                self.table.heading(i, text=i)
+                longest = max(dataframe[i].values, key=len).strip()
+                longest_val = font_obj.measure(text=longest)
+                index_val = font_obj.measure(text=i)
+                width = max(longest_val, index_val)
+                self.table.column(i, width=width, stretch=True)
 
     def update(self, new_data):
         self.table.delete(*self.table.get_children())
-        self.create_entries(new_data)
+        new_data = new_data.astype(str)
+        self.create_entries(new_data, init=True)
 
 
 class CheckCombo(ttk.Combobox):
@@ -417,20 +420,20 @@ class NotebookTab(ttk.Frame):
         figure = plt.Figure(figsize=(7, 5))
         ax = figure.add_subplot()
         names = data.groupby([y_ax]).count().iloc[:,0]
-        line, = ax.plot(names.index, names.values, marker='o', color='green', mfc='red')
+        line, = ax.plot(names.index, names.values, marker='o', mfc='red')
 
-        annot = ax.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="grey"),
-                    arrowprops=dict(arrowstyle="->"))
+        annot = ax.annotate("", xy=(0,0), xytext=(-30,20),textcoords="offset points",
+                    bbox=dict(boxstyle="round", fc="w"),
+                    arrowprops=dict(arrowstyle="->"), clip_on=True)
         annot.set_visible(False)
 
         def update_annot(ind):
             x,y = line.get_data()
             ind = ind['ind'][0]
             annot.xy = (x[ind], y[ind])
-            text = f"{y_ax}-{names.index[ind]}, People-{names.values[ind]}"
+            text = f"{y_ax}-{x[ind]}, People-{y[ind]}"
             annot.set_text(text)
-            annot.get_bbox_patch().set_alpha(0.5)
+            annot.get_bbox_patch().set_alpha(1)
 
         def hover(event):
             vis = annot.get_visible()

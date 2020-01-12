@@ -120,9 +120,9 @@ class MainWindow(ttk.Frame):
             with open(filename, 'r', encoding='utf-8') as data_file:
                 del self.base, self.data
                 data = read_csv(data_file)
-                print(data.info(verbose=False))
+                data.info(verbose=False)
                 compress_dataframe(data)
-                print(data.info())
+                data.info()
                 self.base = data
 
             self.data = self.base.copy(deep=True)
@@ -135,7 +135,7 @@ class MainWindow(ttk.Frame):
             except:
                 self.table = DataTable(
                     self.bottom_frame, data.head(50).copy(), None)
-                self.table.pack(fill='both', expand=True)
+                self.table.pack(fill='both')
 
             df_columns = data.columns
             for widget in self.graph_options.inputs.values():
@@ -143,27 +143,7 @@ class MainWindow(ttk.Frame):
                     if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
                         dictionary['options'] = df_columns
 
-            # for i in df_columns:
-            #     if i in {'FirstName', 'Firstname', 'firstname', 'firstName', 'First Name'}:
-            #         names = data[i].value_counts(ascending=False)
-            #         self.data_input.inputs[0]['options'] = list(names.index)
-            #         break
-
-            # temp_list = []
-            # for i in data.select_dtypes(['object', 'category']).columns:
-            #     val = data[i].value_counts(ascending=False).index
-            #     dtype = val.dtype.name
-            #     test = {
-            #         'kind': 'combo',
-            #         'label': i,
-            #         'options': val,
-            #         'id': i.lower()
-            #     }
-
-            #     test['options'] = val
-            #     temp_list.append(test)
-
-            temp_list = [dict(kind='combo', label=i, id=i.lower(), options=data[i].value_counts(ascending=False).index)
+            temp_list = [dict(kind='combo', label=i, id=i, options=data[i].value_counts(ascending=False).index)
                          for i in data.select_dtypes(['object', 'category']).columns]
 
             self.data_input.inputs = temp_list
@@ -185,11 +165,6 @@ class MainWindow(ttk.Frame):
             title = 'Data entry'
             message = 'File was not selected properly. Please select file properly.'
             messagebox.showerror(title=title, message=message)
-
-        # except:
-        #     title = 'Unknown Error'
-        #     message = 'If you are seeing this, I don\'t know how you got here'
-        #     messagebox.showerror(title=title, message=message)
 
     def plot(self):
 
@@ -219,12 +194,14 @@ class MainWindow(ttk.Frame):
         options = self.data_input.values
 
         for key, val in options.items():
-            print(i)
-        pass
-
+            text = val.get().strip()
+            if text:
+                self.data = self.data[~(self.data[key]==text)].reset_index(drop=True)
+                self.table.update(self.data.head(50))
+        
     def clear_filter(self):
         self.data = self.base.copy(deep=True)
-        self.table.update(self.data.head(10).copy())
+        self.table.update(self.data.head(50).copy(), init=True)
 
 
 def main():
