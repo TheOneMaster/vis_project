@@ -381,7 +381,11 @@ class NotebookTab(ttk.Frame):
             return figure
 
         except AttributeError:
-            message = 'The chosen column does not consist of strings'
+            message = 'The chosen column does not consist of strings.'
+            messagebox.showerror(title='Column Choice', message=message)
+            return None
+        except ValueError:
+            message = 'The chosen column does not consist of words.'
             messagebox.showerror(title='Column Choice', message=message)
             return None
 
