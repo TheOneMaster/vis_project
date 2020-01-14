@@ -144,6 +144,7 @@ class MainWindow(ttk.Frame):
 
 
             self.data_input.inputs = temp_list
+            self.data_input.scroll = True
 
             self.data_input.is_data = True
             self.graph_options.is_data = True

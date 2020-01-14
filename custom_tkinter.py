@@ -154,6 +154,48 @@ class CustomNotebook(ttk.Notebook):
             })
         ])
 
+class Scrollable(tk.Frame):
+    """
+       Make a frame scrollable with scrollbar on the right.
+       After adding or removing widgets to the scrollable frame, 
+       call the update() method to refresh the scrollable area.
+    """
+
+    def __init__(self, frame, width=16):
+
+        self.scrollbar = tk.Scrollbar(frame, width=width)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y, expand=False, padx=(2,0), pady=2)
+
+        self.canvas = tk.Canvas(frame, yscrollcommand=self.scrollbar.set, width=250)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 2), pady=2)
+
+        self.scrollbar.config(command=self.canvas.yview)
+
+        self.canvas.bind('<Configure>', self.__fill_canvas)
+
+        # base class initialization
+        tk.Frame.__init__(self, frame)         
+
+        # assign this obj (the inner frame) to the windows item of the canvas
+        self.windows_item = self.canvas.create_window(0,0, window=self, anchor=tk.NW)
+
+
+    def __fill_canvas(self, event):
+        "Enlarge the windows item to the canvas width"
+
+        canvas_width = event.width
+        self.canvas.itemconfig(self.windows_item, width = canvas_width)        
+
+    def update(self):
+        "Update the canvas and the scrollregion"
+
+        self.update_idletasks()
+        self.canvas.config(scrollregion=self.canvas.bbox(self.windows_item))
+
+    def destroy(self):
+        self.scrollbar.destroy()
+        self.canvas.destroy()
+        return super().destroy()
 
 class CustomToolbar(NavigationToolbar2Tk):
 
@@ -491,6 +533,7 @@ class LabelFrameInput(ttk.LabelFrame):
         self.is_data = False
         self.inputs = inputs
         self.frames = None
+        self.scroll = False
 
         if primary == 'graph_options':
 
@@ -544,8 +587,15 @@ class LabelFrameInput(ttk.LabelFrame):
                 pass
 
     def create_frame(self, entries):
-
-        frame_master = ttk.Frame(self)
+        
+        if self.scroll:
+            frame_top = ttk.LabelFrame(self, text='Filters')
+            frame_1 = ttk.Frame(frame_top)
+            frame_1.pack(fill='both', expand=True)
+            frame_master = Scrollable(frame_1)
+        else:
+            frame_master = ttk.Frame(self)
+        
         inputs = deepcopy(entries)
         entry_widget = {}
 
@@ -585,7 +635,11 @@ class LabelFrameInput(ttk.LabelFrame):
             widget.pack(side=tk.RIGHT, fill=tk.X, expand=True)
             frame.pack(fill=tk.X, pady=5)
 
-        return frame_master, entry_widget
+        if self.scroll:
+            frame_master.update()
+            return frame_top, entry_widget
+        else:
+            return frame_master, entry_widget
 
     def update(self, name=None):
 
@@ -607,9 +661,13 @@ class LabelFrameInput(ttk.LabelFrame):
                 try:
                     self.frames.destroy()
                     self.frames, self.values = self.create_frame(self.inputs)
+                    # if self.scroll:
+                    #     return True
                     self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
                 except AttributeError:
                     self.frames, self.values = self.create_frame(self.inputs)
+                    # if self.scroll:
+                    #     return True
                     self.frames.pack(side=tk.TOP, fill=tk.X, padx=5)
 
         else:
