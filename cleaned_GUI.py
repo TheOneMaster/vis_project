@@ -34,7 +34,7 @@ class MainWindow(ttk.Frame):
         barplot_widgets = [
             {'kind': 'optionmenu', 'label': 'Column',
                 'options': ['Not available'], 'id': 'column'},
-            {'kind': 'entry', 'label': 'Nr. of categories', 'id': 'categories'}
+            {'kind': 'entry', 'label': 'Nr. of categories', 'id': 'categories', 'validate':'int'}
         ]
 
         wordcloud_widgets = [
@@ -138,9 +138,9 @@ class MainWindow(ttk.Frame):
                     if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
                         dictionary['options'] = df_columns
 
-            temp_list = [dict(kind='combo', label=i, id=i, options=data[i].value_counts(ascending=False).index)
+            temp_list = [dict(kind='combo', label=i, id=i, values=data[i].value_counts(ascending=False).index)
                          for i in data.select_dtypes(['object', 'category']).columns]
-            temp_list.append(dict(kind='entry', label='Nr. of Rows', id='rows'))
+            temp_list.append(dict(kind='entry', label='Nr. of Rows', id='rows', validate='int'))
 
 
             self.data_input.inputs = temp_list

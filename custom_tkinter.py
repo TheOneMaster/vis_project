@@ -559,19 +559,20 @@ class LabelFrameInput(ttk.LabelFrame):
                     frame, stringvar, options[0], *options, **kwargs)
                 entry_widget[identity] = stringvar
 
-            elif widget == 'combo':
-                options = kwargs.pop('options')
-                widget = self.key[widget](frame, values=options, **kwargs)
-                entry_widget[identity] = widget.stringvar
-
             elif widget == 'checkbutton':
                 intvar = tk.IntVar()
                 widget = self.key[widget](frame, variable=intvar)
                 entry_widget[identity] = intvar
 
             else:
+                if widget == 'entry' and 'validate' in kwargs:
+                    reg = frame.register(self.int_validate)
+                    kwargs['validatecommand'] = (reg, '%P')
+                    kwargs['validate'] = 'key'
+                
                 widget = self.key[widget](frame, **kwargs)
                 entry_widget[identity] = widget
+
 
             if not self.is_data:
                 widget.config(state='disabled')
@@ -636,8 +637,7 @@ class LabelFrameInput(ttk.LabelFrame):
             values = [names[i] for i in values] if len(values)>0 else names[0:10]
             combo['values'] = values
 
-    def int_validate(inp):
-
+    def int_validate(self, inp):
         if inp.isdigit():
             return True
         elif not inp:
