@@ -360,7 +360,7 @@ class NotebookTab(ttk.Frame):
         # Data manipulation
         try:
             names = data.groupby(groupby_column).count().iloc[:, 0]
-            names = names[names.index.str.match(r"^[a-zA-Z ']+$")]
+            names = names[names.index.str.match(r"^[a-zA-Z ']+$", na=False)]
             
             filt = options['filter'].get().strip()
             if filt:
@@ -636,6 +636,14 @@ class LabelFrameInput(ttk.LabelFrame):
             values = [names[i] for i in values] if len(values)>0 else names[0:10]
             combo['values'] = values
 
+    def int_validate(inp):
+
+        if inp.isdigit():
+            return True
+        elif not inp:
+            return True
+        else:
+            return False
 
 class IciclePlot(tk.Canvas):
 
