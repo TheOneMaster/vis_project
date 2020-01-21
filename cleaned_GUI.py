@@ -68,7 +68,8 @@ class MainWindow(ttk.Frame):
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets,
             'Line': line_widgets,
-            'Icicle': icicle_widgets
+            'Icicle': icicle_widgets,
+            'Test': None
         }
 
         self.graph_options = LabelFrameInput(
@@ -134,9 +135,12 @@ class MainWindow(ttk.Frame):
 
             df_columns = data.columns
             for widget in self.graph_options.inputs.values():
-                for dictionary in widget:
-                    if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
-                        dictionary['options'] = df_columns
+                try:
+                    for dictionary in widget:
+                        if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
+                            dictionary['options'] = df_columns
+                except TypeError:
+                    pass
 
             temp_list = [dict(kind='combo', label=i, id=i, values=data[i].value_counts(ascending=False).index)
                          for i in data.select_dtypes(['object', 'category']).columns]
@@ -167,9 +171,19 @@ class MainWindow(ttk.Frame):
     def plot(self):
 
         if self.data is None:
-            title = 'No Data'
-            message = 'There is no data provided to the application.'
-            messagebox.showerror(title=title, message=message)
+
+            kind = self.graph_options.graph_type.get()
+            if kind == 'Test':
+                options = self.graph_options.values[kind] if kind in self.graph_options.values else None
+                labels = self.plot_labels.values
+                frame = NotebookTab(self.notebook, notebook=self.notebook,
+                                    data=self.data, kind=kind, options=options, labels=labels)
+                self.notebook.add(frame, text='Test')
+                self.notebook.select(frame)
+            else:
+                title = 'No Data'
+                message = 'There is no data provided to the application.'
+                messagebox.showerror(title=title, message=message)
 
         else:
             kind = self.graph_options.graph_type.get()

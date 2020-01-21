@@ -56,6 +56,7 @@ def compress_dataframe(dataframe):
 
     float64_col = dataframe.select_dtypes("float64").columns   
     float_to_int = [i for i in float64_col if all(np.isclose(data:=dataframe[i].fillna(-1).values, data.astype('int')))]
+    # float_to_int = [i for i in float64_col if all(np.isclose(dataframe[i].fillna(-1).values, dataframe[i].fillna(-1).values.astype('int')))]
     int_compress(float_to_int, float_val=True)
     
     obj_col = dataframe.select_dtypes("object")
@@ -161,12 +162,12 @@ class Scrollable(tk.Frame):
        call the update() method to refresh the scrollable area.
     """
 
-    def __init__(self, frame, width=16):
+    def __init__(self, frame):
 
-        self.scrollbar = tk.Scrollbar(frame, width=width)
+        self.scrollbar = tk.Scrollbar(frame)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y, expand=False, padx=(2,0), pady=2)
 
-        self.canvas = tk.Canvas(frame, yscrollcommand=self.scrollbar.set, width=250)
+        self.canvas = tk.Canvas(frame, yscrollcommand=self.scrollbar.set, width=250, height=200, bg='red')
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 2), pady=2)
 
         self.scrollbar.config(command=self.canvas.yview)
@@ -341,7 +342,8 @@ class NotebookTab(ttk.Frame):
             'Barplot': self.barplot,
             'Wordcloud': self.wordcloud,
             'Icicle': self.icicle,
-            'Line': self.line
+            'Line': self.line,
+            'Test': self.test
         }
 
         if labels['xkcd'].get():
@@ -362,6 +364,7 @@ class NotebookTab(ttk.Frame):
 
             if title is not None:
                 figure.canvas.create_text(0, 0, text=title)
+            
             canvas = figure.canvas
         
         else:
@@ -499,6 +502,8 @@ class NotebookTab(ttk.Frame):
         self.hover = hover                
         return figure
 
+    def test(self, data, options, labels):
+        return TestPlot()
 
 class LabelFrameInput(ttk.LabelFrame):
 
@@ -542,7 +547,7 @@ class LabelFrameInput(ttk.LabelFrame):
 
             frame = ttk.Frame(self)
             graph_options_lab = ttk.Label(frame, text='Graph Type', width=15)
-            options = ['Barplot', 'Wordcloud', 'Line', 'Icicle']
+            options = list(self.inputs)
             self.graph_type = tk.StringVar()
             graph_options_opt = ttk.OptionMenu(
                 frame, self.graph_type, options[0], *options, command=self.update)
@@ -552,6 +557,8 @@ class LabelFrameInput(ttk.LabelFrame):
 
             for i in options:
                 if i in inputs:
+                    if inputs[i] is None:
+                        continue
                     data = self.create_frame(inputs[i])
                     self.frames[i] = data[0]
                     self.values[i] = data[1]
@@ -711,27 +718,21 @@ class IciclePlot(tk.Canvas):
 
     def __init__(self, master, data, inputs):
         super().__init__(master=master)
-
         # retype strings to integers and tuples:
-        options = deepcopy(inputs)
+        options = copy(inputs)
         Column = options['column'].get()
         try:
-            cutoff = options.pop('cutoff').get().strip()
+            
             Height = options['height'].get().strip()
             Width = options['width'].get().strip()
-            min_char_width = options['min_char_width'].get()
-            # cutoff = int(cutoff) if cutoff.isdigit() else 1
-            
-            for i in [Height, Width]:
-                i = int(i) if i.isdigit() else 700
-            
-            for i in [cutoff, min_char_width]:
-                i = int(i) if i.isdigit() else 1
+            Height = int(Height) if Height.isdigit() else 700
+            Width = int(Width) if Width.isdigit() else 700
 
-            # Height = int(Height) if Height.isdigit() else 700
-            # Width = int(Width) if Width.isdigit() else 700
-            # min_char_width = int(
-            #     min_char_width) if min_char_width.isdigit() else 1
+            cutoff = options.pop('cutoff').get().strip()
+            min_char_width = options['min_char_width'].get()
+            cutoff = int(cutoff) if cutoff.isdigit() else 1
+            min_char_width = int(min_char_width) if min_char_width.isdigit() else 1
+        
         except ValueError:
             title = 'Incorrect Input'
             message = 'cutoff, Height, Width or min_char_width was not coercable to int'
@@ -784,7 +785,7 @@ class IciclePlot(tk.Canvas):
             self.data.sort_values(by=Column, inplace=True)
             self.name_list = self.data[Column].astype(str).values
         else:
-            self.name_list = data
+            self.name_list = data.notnull().values
             self.name_list.sort()
 
         # sorting names and cleaning input
@@ -816,8 +817,8 @@ class IciclePlot(tk.Canvas):
 
         # determine height and width
         height_per_name = Height/len(names)
-        width_per_char = max(Width/max([len(name)
-                             for name in names]), min_char_width)
+        width_per_char = max(Width/max(len(name)
+                             for name in names), min_char_width)
 
         self.memorydict = self.NameIciclePlot(
             names, width_per_char, height_per_name, x, y, Width, cutoff, self.data, **options)
@@ -1076,3 +1077,67 @@ class IciclePlot(tk.Canvas):
         """
         return "#%02x%02x%02x" % rgb
 
+
+
+######### IGNORE ###########
+
+
+class TestPlot(plt.Figure):
+
+    def __init__(self):
+        super().__init__()
+        ax = self.add_subplot(projection='polar')
+        men_children = [['Test', 100, 'olivedrab',[]]]
+        women_children = [['Test_2', 100, 'goldenrod',[]]]
+        temp_val = [
+            ['People', 100, 'white', [['Men', 49, 'royalblue', men_children], ['Women', 51, 'fuchsia', women_children]]]
+        ]
+        self.preprocess(temp_val)
+        # print(temp_val)
+        self.sunburst(temp_val, ax=ax)
+        
+
+    def sunburst(self, nodes, total=np.pi * 2, offset=0, level=0, ax=None):
+
+        if level == 0 and len(nodes) == 1:
+            label, value, color, subnodes = nodes[0]
+            ax.bar([0], [0.5], [np.pi * 2], color=color)
+            ax.text(0, 0, label, ha='center', va='center')
+            self.sunburst(subnodes, total=value, level=level + 1, ax=ax)
+        elif nodes:
+            d = np.pi * 2 / total
+            labels = []
+            widths = []
+            colors = []
+            local_offset = offset
+            for label, value, color, subnodes in nodes:
+                labels.append(label)
+                widths.append(value * d)
+                colors.append(color)
+                self.sunburst(subnodes, total=total, offset=local_offset,
+                        level=level + 1, ax=ax)
+                local_offset += value
+            values = np.cumsum([offset * d] + widths[:-1])
+            heights = [1] * len(nodes)
+            bottoms = np.zeros(len(nodes)) + level - 0.5
+            rects = ax.bar(values, heights, widths, bottoms, linewidth=1,
+                        edgecolor='white', align='edge', color=colors)
+            for rect, label in zip(rects, labels):
+                x = rect.get_x() + rect.get_width() / 2
+                y = rect.get_y() + rect.get_height() / 2
+                rotation = (90 + (360 - np.degrees(x) % 180)) % 360
+                ax.text(x, y, label, rotation=rotation, ha='center', va='center') 
+
+        if level == 0:
+            ax.set_theta_direction(-1)
+            ax.set_theta_zero_location('N')
+            ax.set_axis_off()
+
+    def preprocess(self, arr_main, parent=100):
+
+        try:
+            for arr in arr_main:
+                arr[1] = arr[1] * (parent/100)
+                self.preprocess(arr[3], parent=arr[1])
+        except:
+            print(arr)
