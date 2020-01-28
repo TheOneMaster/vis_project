@@ -1,6 +1,6 @@
 # Visualisation Project - Year 2
 
-Files for the GUI. 
+Files for the GUI. Written in Python using the Tkinter and matplotlib libraries for GUI and visualisation respectively.
 
 To run the code
 =
