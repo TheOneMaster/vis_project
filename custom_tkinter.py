@@ -407,7 +407,8 @@ class NotebookTab(ttk.Frame):
 
         # Data manipulation
         try:
-            names = data.groupby(groupby_column).count().iloc[:, 0]
+            names = data[groupby_column].value_counts()
+            names = names.sort_index(ascending=True)
             names = names[names.index.str.match(r"^[a-zA-Z ']+$", na=False)]
             
             filt = options['filter'].get().strip()

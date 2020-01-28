@@ -28,8 +28,9 @@ class MainWindow(ttk.Frame):
         """
         # Data entry
 
-        self.data_input = LabelFrameInput(
-            self.left_frame, None, 'data_input', command=self.get_data, text='Data entry and preprocessing', alt_command=[self.filter_data, self.clear_filter])
+        self.data_input = LabelFrameInput(self.left_frame, None, 'data_input',
+                                          command=self.get_data, alt_command=[self.filter_data, self.clear_filter],
+                                          text='Data entry and preprocessing')
 
         # Graph Options
         barplot_widgets = [
@@ -127,7 +128,8 @@ class MainWindow(ttk.Frame):
             filename = filedialog.askopenfilename(filetypes=file_types)
 
             with open(filename, 'r', encoding='utf-8') as data_file:
-                del self.base, self.data
+                self.base = None
+                self.data = None
                 gc.collect()   # Try to reduce the memory footprint of the loaded data as much as possible
                 data = read_csv(data_file)
                 compress_dataframe(data)
@@ -136,12 +138,10 @@ class MainWindow(ttk.Frame):
 
             try:
                 self.table.destroy()
-                self.table = DataTable(
-                    self.bottom_frame, data.head(50).copy(), None)
+                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both', expand=True)
             except:
-                self.table = DataTable(
-                    self.bottom_frame, data.head(50).copy(), None)
+                self.table = DataTable(self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both')
 
             "Add column values to the various dropdown menus"
