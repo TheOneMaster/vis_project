@@ -14,6 +14,7 @@ from ast import literal_eval
 import re
 
 def compress_dataframe(dataframe):
+    "Compress dataframe inplace, mainly for floats, ints and categorical variables"
 
     def int_compress(col, float_val=False):
         if not float_val:
@@ -167,7 +168,7 @@ class Scrollable(tk.Frame):
         self.scrollbar = tk.Scrollbar(frame)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y, expand=False, padx=(2,0), pady=2)
 
-        self.canvas = tk.Canvas(frame, yscrollcommand=self.scrollbar.set, width=250, height=200, bg='red')
+        self.canvas = tk.Canvas(frame, yscrollcommand=self.scrollbar.set, width=250, height=200)
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5, 2), pady=2)
 
         self.scrollbar.config(command=self.canvas.yview)
@@ -326,7 +327,6 @@ class CheckCombo(ttk.Combobox):
         else:
             self['values'] = self.options[0:10]
  
-# Classes that are still being worked on 
 
 class NotebookTab(ttk.Frame):
     "A ttk Frame with the frame layout and figure for the notebook"
@@ -348,11 +348,11 @@ class NotebookTab(ttk.Frame):
 
         if labels['xkcd'].get():
             with plt.xkcd():
-                figure = plot_types[kind](
-                    data=data, options=options, labels=labels)
+                figure = plot_types[kind](data=data, options=options, labels=labels)
         else:
-            figure = plot_types[kind](
-                data=data, options=options, labels=labels)
+            figure = plot_types[kind](data=data, options=options, labels=labels)
+
+        # figure = plot_types[kind](data=data, options=options, labels=labels)
 
         if figure is None:
             pass
@@ -374,8 +374,9 @@ class NotebookTab(ttk.Frame):
 
             if title is not None:
                 figure.suptitle(title)
-
-            figure.set_tight_layout(True)
+                figure.set_tight_layout(True)
+            else:
+                figure.set_tight_layout(True)
 
             self.canvas = FigureCanvasTkAgg(figure, master=self)
 
@@ -465,45 +466,120 @@ class NotebookTab(ttk.Frame):
     def line(self, data, options, labels):
 
         y_ax = options['y'].get()
-        x_ax = options['x'].get()
+        groupby = options['groupby'].get()
         # Data manipulation
-        figure = plt.Figure(figsize=(7, 5))
-        ax = figure.add_subplot()
-        names = data.groupby([y_ax]).count().iloc[:,0]
-        line, = ax.plot(names.index, names.values, marker='o', mfc='red')
+        figure, ax = plt.subplots()
+        lines = []
+        self.location = [0,0]
 
-        annot = ax.annotate("", xy=(0,0), xytext=(-30,20),textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="w"),
-                    arrowprops=dict(arrowstyle="->"), clip_on=True)
-        annot.set_visible(False)
+        if groupby == 'None':
+            used_data = data[y_ax].value_counts()
+            used_data = used_data.sort_index(ascending=True)
+            lines, = ax.plot(used_data.index, used_data.values, marker='o')
+            annot = ax.annotate("", xy=(0,0), xytext=(-30,20),textcoords="offset points",
+                            bbox=dict(boxstyle="round", fc="w"),
+                            arrowprops=dict(arrowstyle="->"), clip_on=True)
+            annot.set_visible(False)
+        
+        else:
+            for label, df in data.groupby(groupby):
+                used_data = df[y_ax].value_counts()
+                used_data = used_data.sort_index(ascending=True)
 
-        def update_annot(ind):
-            x,y = line.get_data()
-            ind = ind['ind'][0]
-            annot.xy = (x[ind], y[ind])
-            text = f"{y_ax}-{x[ind]}, People-{y[ind]}"
-            annot.set_text(text)
-            annot.get_bbox_patch().set_alpha(1)
+                picker = (used_data.max()-used_data.min())/(len(used_data.index)*100)
+
+
+                line, = ax.plot(used_data.index, used_data.values, label=label, marker='o', picker=1)
+                lines.append([line, label])
+                
+                annot = ax.annotate("", xy=(0,0), xytext=(-30,20),textcoords="offset points",
+                            bbox=dict(boxstyle="round", fc="w"),
+                            arrowprops=dict(arrowstyle="->"), clip_on=True)
+                annot.set_visible(False)
+
+            plt.legend()
+
+        def update_annot(ind, event=None, index=None):
+            if isinstance(lines, list):
+                x,y = lines[index][0].get_data()
+                label = lines[index][1]
+                ind = ind['ind'][0]
+
+                location = self.location
+                if (x[ind]==location[0]) and (y[ind]==location[1]):
+                    return
+                
+                if abs(x[ind]-event.xdata) < abs(x_val-event.xdata):
+                    x = x[ind]
+                    self.location[0] = x
+                if abs(y[ind]-event.ydata) < abs(y_val-event.ydata):
+                    y = y[ind]
+                    self.location[1] = y
+
+                annot.xy = (x_val, y_val)
+
+                annot_text = annot.get_text()
+                text = f'{label}\n{y_ax}-{x_val}, People-{y_val}'
+                if text in annot_text:
+                    return
+                else:
+                    if annot_text:
+                        annot_text = f'{annot_text}\n\n{text}'
+                    else:
+                        annot_text = text
+                annot.set_text(annot_text)
+                annot.get_bbox_patch().set_alpha(1)
+            else:
+                x, y = lines.get_data()
+                ind = ind['ind'][0]
+                annot.xy = (x[ind], y[ind])
+                text = f'{y_ax}-{x[ind]} People-{y[ind]}'
+
+                annot.set_text(text)
+                annot.get_bbox_patch().set_alpha(1)
 
         def hover(event):
             vis = annot.get_visible()
-            if event.inaxes == ax:
-                cont, ind = line.contains(event)
-                if cont:
-                    update_annot(ind)
-                    annot.set_visible(True)
-                    self.canvas.draw_idle()
-                else:
-                    if vis:
+            if isinstance(lines, list):
+                x = 0
+                length = len(lines)
+                if event.inaxes == ax:
+                    for index, line in enumerate(lines):
+                        line = line[0]
+                        cont, ind = line.contains(event)
+                        if cont:
+                            update_annot(ind, event, index)                        
+                        else:
+                            x += 1
+                
+                    if (x==length):
                         annot.set_text('')
                         annot.set_visible(False)
                         self.canvas.draw_idle()
-
+                    else:
+                        annot.set_visible(True)
+                        self.canvas.draw_idle()
+            else:
+                if event.inaxes == ax:
+                    cont, ind = lines.contains(event)
+                    if cont:
+                        update_annot(ind)
+                        annot.set_visible(True)
+                        self.canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            self.canvas.draw_idle()
+                            
         self.hover = hover                
         return figure
 
     def test(self, data, options, labels):
-        return TestPlot()
+        a = TestPlot(data, options)
+        if a.empty:
+            return None
+        else:
+            return a
 
 class LabelFrameInput(ttk.LabelFrame):
 
@@ -625,6 +701,15 @@ class LabelFrameInput(ttk.LabelFrame):
                 widget = self.key[widget](frame, variable=intvar)
                 entry_widget[identity] = intvar
 
+            elif widget == 'button':
+                command = kwargs.pop('command')
+                if command == 'file':
+                    command = filedialog.askopenfilename
+                
+                widget = self.key[widget](frame, command=command, **kwargs)
+                entry_widget[identity] = command
+                
+
             else:
                 if widget == 'entry' and 'validate' in kwargs:
                     reg = frame.register(self.int_validate)
@@ -719,7 +804,7 @@ class IciclePlot(tk.Canvas):
     def __init__(self, master, data, inputs):
         super().__init__(master=master)
         # retype strings to integers and tuples:
-        options = copy(inputs)
+        options = inputs.copy()
         Column = options['column'].get()
         try:
             
@@ -783,9 +868,9 @@ class IciclePlot(tk.Canvas):
             mask = data[Column].notnull().values
             self.data = data.loc[mask]
             self.data.sort_values(by=Column, inplace=True)
-            self.name_list = self.data[Column].astype(str).values
+            self.name_list = [str(x) for x in self.data[Column].values]
         else:
-            self.name_list = data.notnull().values
+            self.name_list = data
             self.name_list.sort()
 
         # sorting names and cleaning input
@@ -1078,50 +1163,84 @@ class IciclePlot(tk.Canvas):
         return "#%02x%02x%02x" % rgb
 
 
-
 ######### IGNORE ###########
 
 
 class TestPlot(plt.Figure):
 
-    def __init__(self):
+    color_lvl = {
+        0: 'white',
+        1: 'royalblue',
+        2: 'fuchsia',
+        3: 'olivedrab',
+        4: 'coral'
+    }
+
+    def __init__(self, data, options):
         super().__init__()
+        colors = False
         ax = self.add_subplot(projection='polar')
-        men_children = [['Test', 100, 'olivedrab',[]]]
-        women_children = [['Test_2', 100, 'goldenrod',[]]]
-        temp_val = [
-            ['People', 100, 'white', [['Men', 49, 'royalblue', men_children], ['Women', 51, 'fuchsia', women_children]]]
-        ]
-        self.preprocess(temp_val)
-        # print(temp_val)
-        self.sunburst(temp_val, ax=ax)
+
+        lv_list = [options[f'lv_{i}'].get() for i in range(1,6) if options[f'lv_{i}'].get() != 'Not Available']
+        
+        if len(lv_list) == 0:
+            messagebox.showerror('Column Selection', 'No columns selected for visualisation')
+            self.empty = True
+        else:
+            tree = self.get_list(data, lv_list)
+            self.sunburst(tree, ax=ax, colors=colors)
         
 
-    def sunburst(self, nodes, total=np.pi * 2, offset=0, level=0, ax=None):
+    def sunburst(self, nodes, total=np.pi * 2, offset=0, level=0, colors=False, ax=None):
 
         if level == 0 and len(nodes) == 1:
-            label, value, color, subnodes = nodes[0]
+            if colors:
+                label, value, color, subnodes = nodes[0]
+            else:
+                label, value, subnodes = nodes[0]
+                color = self.__class__.color_lvl[level]
+            
             ax.bar([0], [0.5], [np.pi * 2], color=color)
             ax.text(0, 0, label, ha='center', va='center')
-            self.sunburst(subnodes, total=value, level=level + 1, ax=ax)
+            if colors:
+                self.sunburst(subnodes, total=value, level=level + 1, ax=ax, colors=True)
+            else:
+                self.sunburst(subnodes, total=value, level=level + 1, ax=ax)
         elif nodes:
             d = np.pi * 2 / total
             labels = []
             widths = []
-            colors = []
             local_offset = offset
-            for label, value, color, subnodes in nodes:
-                labels.append(label)
-                widths.append(value * d)
-                colors.append(color)
-                self.sunburst(subnodes, total=total, offset=local_offset,
-                        level=level + 1, ax=ax)
-                local_offset += value
-            values = np.cumsum([offset * d] + widths[:-1])
-            heights = [1] * len(nodes)
-            bottoms = np.zeros(len(nodes)) + level - 0.5
-            rects = ax.bar(values, heights, widths, bottoms, linewidth=1,
-                        edgecolor='white', align='edge', color=colors)
+            if colors is True:
+                color_list = []
+                for label, value, color, subnodes in nodes:
+                    labels.append(label)
+                    widths.append(value * d)
+                    color_list.append(color)
+                    self.sunburst(subnodes, total=total, offset=local_offset,
+                            level=level + 1, ax=ax, colors=True)
+                    local_offset += value
+                values = np.cumsum([offset * d] + widths[:-1])
+                heights = [1] * len(nodes)
+                bottoms = np.zeros(len(nodes)) + level - 0.5
+
+                rects = ax.bar(values, heights, widths, bottoms, linewidth=1,
+                        edgecolor='white', align='edge', color=color_list)
+
+            else:
+                for label, value, subnodes in nodes:
+                    labels.append(label)
+                    widths.append(value * d)
+                    self.sunburst(subnodes, total=total, offset=local_offset,
+                            level=level + 1, ax=ax)
+                    local_offset += value
+                values = np.cumsum([offset * d] + widths[:-1])
+                heights = [1] * len(nodes)
+                bottoms = np.zeros(len(nodes)) + level - 0.5
+
+                rects = ax.bar(values, heights, widths, bottoms, linewidth=1,
+                        edgecolor='white', align='edge', color=self.__class__.color_lvl[level%5])
+            
             for rect, label in zip(rects, labels):
                 x = rect.get_x() + rect.get_width() / 2
                 y = rect.get_y() + rect.get_height() / 2
@@ -1133,11 +1252,29 @@ class TestPlot(plt.Figure):
             ax.set_theta_zero_location('N')
             ax.set_axis_off()
 
-    def preprocess(self, arr_main, parent=100):
+    def convert_to_percent(self, arr_main, parent):
 
         try:
             for arr in arr_main:
-                arr[1] = arr[1] * (parent/100)
-                self.preprocess(arr[3], parent=arr[1])
+                arr[1] = (arr[1]/parent)*100
+                self.convert_to_percent(arr[3], parent=arr[1])
         except:
             print(arr)
+
+    def remove_colors(self, arr):
+
+        for i in arr:
+            del i[2]
+            self.remove_colors(i[2])
+
+    def get_list(self, df, lv):
+        try:
+            unique = df[lv[0]].value_counts()
+            return_list = []
+            for i in unique.index:
+                tmp = self.get_list(df[df[lv[0]]==i], lv[1:])
+                return_list.append([i, unique[i], tmp])
+            return return_list
+        except:
+            return []
+

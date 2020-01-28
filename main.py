@@ -7,6 +7,7 @@ from custom_tkinter import LabelFrameInput, CustomNotebook, NotebookTab, DataTab
 from pandas import read_csv
 import os
 import numpy as np
+import gc
 
 class MainWindow(ttk.Frame):
 
@@ -42,7 +43,8 @@ class MainWindow(ttk.Frame):
                 'options': ['Not available'], 'id': 'column'},
             {'kind': 'optionmenu', 'label': 'BG color', 'options': [
                 'White', 'Black', 'Transparent'], 'id': 'bg'},
-            {'kind': 'entry', 'label': 'Filter', 'id': 'filter'}
+            {'kind': 'entry', 'label': 'Filter', 'id': 'filter'},
+            {'kind': 'button', 'label': 'Image Mask', 'command': 'file', 'id': 'file_mask', 'text': 'Select File'}
         ]
 
         icicle_widgets = [
@@ -61,19 +63,28 @@ class MainWindow(ttk.Frame):
         line_widgets = [
             {'kind': 'optionmenu', 'label': 'Y Axis',
                 'options': ['Not Available'], 'id': 'y'},
-            {'kind': 'optionmenu', 'label': 'X Axis',
-                'options': ['Not Available'], 'id': 'x'}
+            {'kind': 'optionmenu', 'label': 'Group By',
+                'options': ['Not Available'], 'id': 'groupby'}
         ]
+        
+        test_widgets = [
+            {'kind': 'optionmenu', 'label': 'Level 1', 'options': ['Not Available'], 'id': 'lv_1'},
+            {'kind': 'optionmenu', 'label': 'Level 2', 'options': ['Not Available'], 'id': 'lv_2'},
+            {'kind': 'optionmenu', 'label': 'Level 3', 'options': ['Not Available'], 'id': 'lv_3'},
+            {'kind': 'optionmenu', 'label': 'Level 4', 'options': ['Not Available'], 'id': 'lv_4'},
+            {'kind': 'optionmenu', 'label': 'Level 5', 'options': ['Not Available'], 'id': 'lv_5'}
+        ]
+        
         graph_options = {
             'Barplot': barplot_widgets,
             'Wordcloud': wordcloud_widgets,
             'Line': line_widgets,
             'Icicle': icicle_widgets,
-            'Test': None
+            # 'Test': test_widgets
         }
+        
 
-        self.graph_options = LabelFrameInput(
-            self.left_frame, graph_options, text='Graph Options', primary='graph_options')
+        self.graph_options = LabelFrameInput(self.left_frame, graph_options, text='Graph Options', primary='graph_options')
 
         # Plot labels
         plot_labels = [
@@ -83,8 +94,7 @@ class MainWindow(ttk.Frame):
             {'kind': 'entry', 'label': 'X Label', 'id': 'xlab'},
             {'kind': 'checkbutton', 'label': 'xkcd', 'id': 'xkcd'}
         ]
-        self.plot_labels = LabelFrameInput(
-            self.left_frame, plot_labels, text='Graph Labels')
+        self.plot_labels = LabelFrameInput(self.left_frame, plot_labels, text='Graph Labels')
 
         plot_btn = ttk.Button(self.left_frame, text='Plot', command=self.plot)
         plot_btn.pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
@@ -111,13 +121,14 @@ class MainWindow(ttk.Frame):
         self.mid_frame.pack(side=tk.LEFT, fill='both', expand=True)
 
     def get_data(self):
-
+        "Allows user input CSV and then adjusts the various widgets accordingly"
         try:
             file_types = [('CSV files', '.csv')]
             filename = filedialog.askopenfilename(filetypes=file_types)
 
             with open(filename, 'r', encoding='utf-8') as data_file:
                 del self.base, self.data
+                gc.collect()   # Try to reduce the memory footprint of the loaded data as much as possible
                 data = read_csv(data_file)
                 compress_dataframe(data)
                 self.base = data
@@ -133,23 +144,34 @@ class MainWindow(ttk.Frame):
                     self.bottom_frame, data.head(50).copy(), None)
                 self.table.pack(fill='both')
 
-            df_columns = data.columns
+            "Add column values to the various dropdown menus"
+            df_columns = list(data.columns)
             for widget in self.graph_options.inputs.values():
                 try:
                     for dictionary in widget:
-                        if dictionary['id'] in {'column', 'bool_column', 'y', 'x'}:
-                            dictionary['options'] = df_columns
+                        if dictionary['id'] in {'column', 'bool_column', 'y', 'groupby'}:
+                            if dictionary['id'] == 'groupby':
+                                copy = df_columns.copy()
+                                copy.insert(0, 'None')
+                                dictionary['options'] = copy
+                            else:
+                                dictionary['options'] = df_columns
                 except TypeError:
                     pass
 
+            "Add filter columns (only categorical or object columns)"
             temp_list = [dict(kind='combo', label=i, id=i, values=data[i].value_counts(ascending=False).index)
                          for i in data.select_dtypes(['object', 'category']).columns]
             temp_list.append(dict(kind='entry', label='Nr. of Rows', id='rows', validate='int'))
 
 
             self.data_input.inputs = temp_list
-            self.data_input.scroll = True
 
+            # Scrollable Frames
+            # self.data_input.scroll = True
+            # self.graph_options.scroll = True
+
+            # Enable widgets
             self.data_input.is_data = True
             self.graph_options.is_data = True
             self.plot_labels.is_data = True
@@ -159,7 +181,7 @@ class MainWindow(ttk.Frame):
             self.plot_labels.update()
 
             messagebox.showinfo(title='Data entry',
-                                message='File has been read.')
+                                message=f'({os.path.basename(filename)}) has been read.')
 
             return os.path.basename(filename)
 
@@ -171,19 +193,9 @@ class MainWindow(ttk.Frame):
     def plot(self):
 
         if self.data is None:
-
-            kind = self.graph_options.graph_type.get()
-            if kind == 'Test':
-                options = self.graph_options.values[kind] if kind in self.graph_options.values else None
-                labels = self.plot_labels.values
-                frame = NotebookTab(self.notebook, notebook=self.notebook,
-                                    data=self.data, kind=kind, options=options, labels=labels)
-                self.notebook.add(frame, text='Test')
-                self.notebook.select(frame)
-            else:
-                title = 'No Data'
-                message = 'There is no data provided to the application.'
-                messagebox.showerror(title=title, message=message)
+            title = 'No Data'
+            message = 'There is no data provided to the application.'
+            messagebox.showerror(title=title, message=message)
 
         else:
             kind = self.graph_options.graph_type.get()
