@@ -181,7 +181,7 @@ class MainWindow(ttk.Frame):
             self.plot_labels.update()
 
             messagebox.showinfo(title='Data entry',
-                                message=f'({os.path.basename(filename)}) has been read.')
+                                message=f'{os.path.basename(filename)} has been read.')
 
             return os.path.basename(filename)
 

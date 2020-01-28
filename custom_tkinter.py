@@ -7,6 +7,7 @@ import wordcloud as wc
 
 import pandas as pd
 import numpy as np
+from PIL import Image
 
 from copy import deepcopy, copy
 import os
@@ -401,6 +402,7 @@ class NotebookTab(ttk.Frame):
     def wordcloud(self, data, options, labels):
         self.is_wordcloud = True
         figure = plt.Figure(figsize=(7, 5))
+        ax = figure.add_subplot()
         groupby_column = options['column'].get()
 
         # Data manipulation
@@ -419,10 +421,20 @@ class NotebookTab(ttk.Frame):
             if bg == 'transparent':
                 bg = None
 
-            self.wordcloud = wc.WordCloud(
-                background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
-            ax = figure.add_subplot()
-            ax.imshow(self.wordcloud, interpolation='bilinear')
+            mask = options['file_mask'].get()
+            
+            if mask:
+                mask = np.array(Image.open(mask))
+                self.wordcloud = wc.WordCloud(background_color=bg, scale=3, mask=mask,
+                                              max_words=2000, max_font_size=50,
+                                              width=700, height=500, mode='RGBA').generate_from_frequencies(names)
+                colors = wc.ImageColorGenerator(mask)
+                ax.imshow(self.wordcloud.recolor(color_func=colors), interpolation='bilinear')
+            else:
+                self.wordcloud = wc.WordCloud(
+                    background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
+                ax.imshow(self.wordcloud, interpolation='bilinear')
+
             ax.set_axis_off()
             return figure
 
@@ -703,11 +715,10 @@ class LabelFrameInput(ttk.LabelFrame):
 
             elif widget == 'button':
                 command = kwargs.pop('command')
-                if command == 'file':
-                    command = filedialog.askopenfilename
+                stringvar = tk.StringVar(value='')
                 
-                widget = self.key[widget](frame, command=command, **kwargs)
-                entry_widget[identity] = command
+                widget = self.key[widget](frame, command=lambda: stringvar.set(self.get_file()), **kwargs)
+                entry_widget[identity] = stringvar
                 
 
             else:
@@ -798,6 +809,19 @@ class LabelFrameInput(ttk.LabelFrame):
             return True
         else:
             return False
+
+    def get_file(self):
+
+        try:
+            filename = filedialog.askopenfilename(filetypes=[('PNG files', '.png')])
+            return filename
+
+        except FileNotFoundError:
+            message = f"No file found."
+            messagebox.showerror(title='File not found', message=message)
+
+
+
 
 class IciclePlot(tk.Canvas):
 
