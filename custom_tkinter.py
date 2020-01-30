@@ -391,7 +391,7 @@ class NotebookTab(ttk.Frame):
             }
 
             if self.is_wordcloud:
-                toolbar_kwargs['figure'] = self.wordcloud
+                toolbar_kwargs['figure'] = self.wc
 
             toolbar = CustomToolbar(**toolbar_kwargs)
             toolbar.update()
@@ -405,6 +405,11 @@ class NotebookTab(ttk.Frame):
         ax = figure.add_subplot()
         groupby_column = options['column'].get()
 
+        def transform_format(val):
+            if val == 0:
+                return 255
+            else:
+                return val
         # Data manipulation
         try:
             names = data[groupby_column].value_counts()
@@ -426,15 +431,18 @@ class NotebookTab(ttk.Frame):
             
             if mask:
                 mask = np.array(Image.open(mask))
-                self.wordcloud = wc.WordCloud(background_color=bg, scale=3, mask=mask,
-                                              max_words=2000, max_font_size=50,
-                                              width=700, height=500, mode='RGBA').generate_from_frequencies(names)
+                mask[mask==0] = 255
+                
+                self.wc = wc.WordCloud(background_color=bg, scale=3, mask=mask,
+                                              max_words=500, max_font_size=50,
+                                              mode='RGBA').generate_from_frequencies(names)
                 colors = wc.ImageColorGenerator(mask)
-                ax.imshow(self.wordcloud.recolor(color_func=colors), interpolation='bilinear')
+                
+                ax.imshow(self.wc.recolor(color_func=colors), interpolation='bilinear')
             else:
-                self.wordcloud = wc.WordCloud(
+                self.wc = wc.WordCloud(
                     background_color=bg, width=700, height=500, scale=3, mode='RGBA').generate_from_frequencies(names)
-                ax.imshow(self.wordcloud, interpolation='bilinear')
+                ax.imshow(self.wc, interpolation='bilinear')
 
             ax.set_axis_off()
             return figure
@@ -522,17 +530,17 @@ class NotebookTab(ttk.Frame):
                 if (x[ind]==location[0]) and (y[ind]==location[1]):
                     return
                 
-                if abs(x[ind]-event.xdata) < abs(x_val-event.xdata):
+                if abs(x[ind]-event.xdata) < abs(location[0]-event.xdata):
                     x = x[ind]
                     self.location[0] = x
-                if abs(y[ind]-event.ydata) < abs(y_val-event.ydata):
+                if abs(y[ind]-event.ydata) < abs(location[1]-event.ydata):
                     y = y[ind]
                     self.location[1] = y
 
-                annot.xy = (x_val, y_val)
+                annot.xy = (self.location[0], self.location[1])
 
                 annot_text = annot.get_text()
-                text = f'{label}\n{y_ax}-{x_val}, People-{y_val}'
+                text = f'{label}\n{y_ax}-{self.location[0]}, People-{self.location[1]}'
                 if text in annot_text:
                     return
                 else:
@@ -820,6 +828,7 @@ class LabelFrameInput(ttk.LabelFrame):
         except FileNotFoundError:
             message = f"No file found."
             messagebox.showerror(title='File not found', message=message)
+            return ""
 
 
 

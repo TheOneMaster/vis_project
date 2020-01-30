@@ -222,7 +222,7 @@ class MainWindow(ttk.Frame):
             
             if text:
                 try: 
-                    self.data = self.data[~(self.data[key]==text)].reset_index(drop=True)
+                    self.data = self.data[~(self.data[key].astype(str)==text)].reset_index(drop=True)
                 except:
                     rows = val.get()
                     length = len(self.data.index)
